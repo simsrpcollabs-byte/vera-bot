@@ -5,6 +5,7 @@ const { isAdmin } = require('./access');
 const { generateOpeningMetrics } = require('./metrics');
 const { verifiedName, isRegisteredIdentityName, applyPlatformBrand } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
+const { addAudience, audienceGain } = require('./audience');
 
 const workTypes = [
   ['Song', 'song'], ['Album', 'album'], ['EP', 'ep'],
@@ -43,7 +44,8 @@ module.exports = {
           { name: 'Saturation', value: 'saturation' },
         ))
         .addStringOption((opt) => opt.setName('label').setDescription('Record label, if applicable').setAutocomplete(true))
-        .addStringOption((opt) => opt.setName('series').setDescription('Parent television series (required for episodes)').setAutocomplete(true));
+        .addStringOption((opt) => opt.setName('series').setDescription('Parent television series (required for episodes)').setAutocomplete(true))
+        .addAttachmentOption((opt) => opt.setName('artwork').setDescription('Optional cover art, photo, or FRAME thumbnail'));
       return sub;
     })
     .addSubcommand((sub) => sub
@@ -109,6 +111,7 @@ module.exports = {
           .addFields(...metrics.fields)
           .setFooter({ text: `Opening metrics · Work #${work.id}` });
       }
+      if (work.media_url && (!work.media_type || work.media_type.startsWith('image/'))) embed.setImage(work.media_url);
       applyPlatformBrand(embed, {
         logo_url: work.platform_logo_url,
         brand_color: work.platform_brand_color,
@@ -181,13 +184,20 @@ module.exports = {
     }
     const releaseDate = interaction.options.getString('release_date');
     const promo = interaction.options.getString('promo') || 'standard';
+    const artwork = interaction.options.getAttachment('artwork');
+    if (artwork?.contentType && !artwork.contentType.startsWith('image/')) {
+      return interaction.reply({ content: 'Artwork must be an image file.', ephemeral: true });
+    }
+    const mediaUrl = artwork?.url || null;
+    const mediaType = artwork?.contentType || null;
 
     const publish = db.transaction(() => {
       const result = db.prepare(`
         INSERT INTO works
           (guild_id, submitted_by, identity_id, label_id, platform_code, title, work_type,
-           credited_name, release_date, promo_level, status, reviewed_by, reviewed_at, parent_work_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'released', ?, CURRENT_TIMESTAMP, ?)
+           credited_name, release_date, promo_level, status, reviewed_by, reviewed_at, parent_work_id,
+           media_url, media_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'released', ?, CURRENT_TIMESTAMP, ?, ?, ?)
       `).run(
         interaction.guildId,
         interaction.user.id,
@@ -201,6 +211,8 @@ module.exports = {
         promo,
         interaction.user.id,
         seriesId,
+        mediaUrl,
+        mediaType,
       );
 
       const metrics = generateOpeningMetrics({
@@ -214,16 +226,7 @@ module.exports = {
       db.prepare(`
         INSERT INTO work_metrics (work_id, metrics_json) VALUES (?, ?)
       `).run(result.lastInsertRowid, JSON.stringify(metrics));
-      if (metrics.socialGain) {
-        db.prepare(`
-          INSERT INTO social_profiles (guild_id, identity_id, platform_code, followers, activity_score, updated_at)
-          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          ON CONFLICT(guild_id, identity_id, platform_code) DO UPDATE SET
-            followers = followers + excluded.followers,
-            activity_score = activity_score + excluded.activity_score,
-            updated_at = CURRENT_TIMESTAMP
-        `).run(interaction.guildId, identityId, platformCode, metrics.socialGain, metrics.chart?.score || 0);
-      }
+      addAudience(db, interaction.guildId, identityId, platformCode, audienceGain(metrics), metrics.chart?.score || 0);
       return { workId: Number(result.lastInsertRowid), metrics };
     });
 
@@ -239,6 +242,7 @@ module.exports = {
       )
       .setFooter({ text: `Work #${workId} · Published instantly · Metrics saved` });
     applyPlatformBrand(embed, platform, metrics.accent);
+    if (mediaUrl) embed.setImage(mediaUrl);
     try {
       const message = await publishAsPersona({
         channel,

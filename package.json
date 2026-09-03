@@ -7,14 +7,14 @@
   "scripts": {
     "start": "node index.js",
     "deploy": "node deploy-commands.js",
-    "check": "node --check index.js && node --check deploy-commands.js && node --check database.js && node --check metrics.js && node --check chartEngine.js && node --check cmd-charts.js && node --check cmd-verified.js && node --check cmd-post.js && node --check cmd-promo.js && node --check cmd-platform.js && node --check cmd-identity.js && node --check tupperbox.js && node --check proxyPublisher.js && node --check weeklyPublisher.js && node --check promotionScheduler.js"
+    "check": "node --check index.js && node --check deploy-commands.js && node --check database.js && node --check database-worker.js && node --check audience.js && node --check metrics.js && node --check chartEngine.js && node --check cmd-charts.js && node --check cmd-verified.js && node --check cmd-post.js && node --check cmd-promo.js && node --check cmd-platform.js && node --check cmd-identity.js && node --check cmd-work.js && node --check tupperbox.js && node --check proxyPublisher.js && node --check weeklyPublisher.js && node --check promotionScheduler.js"
   },
   "engines": {
     "node": ">=20 <24"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
     "discord.js": "^14.19.3",
-    "dotenv": "^16.5.0"
+    "dotenv": "^16.5.0",
+    "pg": "^8.16.3"
   }
 }

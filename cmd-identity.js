@@ -3,6 +3,7 @@ const db = require('./database');
 const { identityChoices } = require('./autocomplete');
 const { isAdmin, ownsIdentity } = require('./access');
 const { verifiedName, verificationLabel } = require('./display');
+const { audienceLabel } = require('./audience');
 
 const aliasTypes = [
   ['Stage name', 'stage'],
@@ -111,6 +112,10 @@ module.exports = {
         SELECT alias_type, alias_name, industry FROM identity_aliases
         WHERE identity_id = ? AND active = 1 ORDER BY alias_type, alias_name
       `).all(identityId);
+      const audiences = db.prepare(`
+        SELECT platform_code, followers FROM social_profiles
+        WHERE guild_id = ? AND identity_id = ? ORDER BY platform_code
+      `).all(interaction.guildId, identityId);
       const embed = new EmbedBuilder()
         .setColor(0x6757ff)
         .setTitle(verifiedName(identity.civilian_name, identity.verified))
@@ -125,6 +130,12 @@ module.exports = {
             value: aliases.length
               ? aliases.map((alias) => `**${alias.alias_name}** — ${alias.alias_type}${alias.industry ? ` (${alias.industry})` : ''}`).join('\n')
               : 'None registered',
+          },
+          {
+            name: 'Platform audiences',
+            value: audiences.length
+              ? audiences.map((row) => `**${row.platform_code}:** ${Number(row.followers).toLocaleString()} ${audienceLabel(row.platform_code)}`).join('\n')
+              : 'No tracked audience yet',
           },
         );
       return interaction.reply({ embeds: [embed], ephemeral: true });

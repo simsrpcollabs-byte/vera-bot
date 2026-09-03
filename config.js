@@ -1,4 +1,3 @@
-const path = require('node:path');
 require('dotenv').config();
 
 function requireValue(name) {
@@ -14,5 +13,6 @@ module.exports = {
   clientId: requireValue('CLIENT_ID'),
   guildId: requireValue('GUILD_ID'),
   adminRoleId: process.env.ADMIN_ROLE_ID?.trim() || null,
-  databasePath: path.resolve(process.env.DATABASE_PATH?.trim() || './data/vera.sqlite'),
+  databaseUrl: requireValue('DATABASE_URL'),
+  databaseSsl: process.env.DATABASE_SSL?.trim().toLowerCase() !== 'false',
 };

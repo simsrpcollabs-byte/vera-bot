@@ -14,7 +14,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 - Instant work publishing with a chosen credited name and distributor
 - Platform-specific opening metrics saved with every published work
 - Live rankings for songs, albums, television, FRAME, Xposure, and KNETIK
-- Artist career summaries, social followings, and television episode histories
+- Artist career summaries, platform audiences, and television episode histories
 - Automatic weekly VERA chart publication in a chosen Discord channel
 - Persona verification approved exclusively by the Discord server owner
 - Official Xposure and KNETIK channels with instant branded social posting
@@ -22,7 +22,9 @@ VERA registers fictional entertainment personas, professional names, record labe
 - Admin approval queue for record labels
 - Automatic Tupperbox proxy linking during persona registration
 - Automatic VORTEX RP formatting recognition for linked Tuppers
-- Local SQLite database with WAL mode
+- Persistent Supabase Postgres database that survives Railway deployments
+- Image uploads for Xposure, KNETIK, cover artwork, and FRAME thumbnails
+- Automatic refresh of linked Tupper proxy avatars
 
 ## Commands
 
@@ -68,10 +70,10 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 ## Requirements
 
-- Windows, macOS, or Linux
-- Node.js 22 LTS recommended (Node 20 also works; do not use Node 24 for this starter)
+- Node.js 22 LTS recommended (Railway can run it for you)
 - A Discord application and bot token
 - The bot invited to your Discord server
+- A free Supabase project
 
 ## First-time setup
 
@@ -91,7 +93,8 @@ VERA registers fictional entertainment personas, professional names, record labe
    CLIENT_ID=your_application_id
    GUILD_ID=your_server_id
    ADMIN_ROLE_ID=optional_admin_role_id
-   DATABASE_PATH=./data/vera.sqlite
+   DATABASE_URL=your_supabase_transaction_pooler_url
+   DATABASE_SSL=true
    ```
 
 6. Register the slash commands:
@@ -126,9 +129,32 @@ You do not need GitHub Desktop.
 
 Never upload a real `.env` file or Discord bot token.
 
+## Supabase and Railway
+
+VERA now keeps its data in Supabase instead of Railway's temporary filesystem. Personas, aliases, Tupper links, labels, posts, metrics, followers, charts, and verification records remain available when Railway rebuilds or replaces the container.
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Save the database password you choose during project creation.
+3. Open **Project Settings → Database → Connection string**.
+4. Choose **Transaction pooler**. This is the Railway-friendly connection option and normally uses port `6543`.
+5. Copy the URI and replace its password placeholder with your real database password.
+6. In Railway, open the VERA service and choose **Variables**.
+7. Add `DATABASE_URL` with the complete URI as its value.
+8. Add `DATABASE_SSL` with the value `true`.
+9. Remove the old `DATABASE_PATH` variable if it is still present.
+10. Upload these replacement files to GitHub and let Railway redeploy.
+
+VERA runs `supabase-schema.sql` automatically when it starts, so you do not have to create the tables manually. The first successful deploy log should include `VERA is online`.
+
+Do not post or screenshot `DATABASE_URL`: it contains the database password. If the password includes reserved URL characters such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before placing it in the connection string.
+
+### Existing SQLite data
+
+The Supabase database starts empty. This upgrade preserves all data created **after** Supabase is connected, but it cannot automatically retrieve an old `vera.sqlite` file that Railway has already erased. If the current bot only contains test personas, deploy the upgrade and register them again. If live data must be migrated, save the existing `/data/vera.sqlite` file before replacing the code and keep it private.
+
 ## Multiple computers
 
-The code can live in this private GitHub repository and be downloaded on each computer. Only one computer or hosting service should run the live bot at a time. VERA creates the `data` folder and SQLite database automatically on that live host; do not sync the live database through OneDrive or Dropbox while VERA is running.
+The code can remain in your private GitHub repository and be managed from any browser or computer. Railway runs the one live copy of VERA, while Supabase holds the shared live data. Never upload `.env`, the Discord token, the Supabase URL, or a database export to GitHub.
 
 ## Tupperbox linking
 
@@ -140,15 +166,17 @@ The code can live in this private GitHub repository and be downloaded on each co
 
 The Tupperbox proxy attaches to the civilian person. Work submissions still choose the correct stage or professional name.
 
+VERA cannot send through Tupperbox's private webhook. Instead, it uses a VERA-owned webhook with the public stage/screen name and mirrors the linked Tupper's current avatar. Whenever the linked proxy speaks in a channel VERA can read, VERA refreshes its saved avatar automatically.
+
 ## Instant publishing and metrics
 
 `/work submit` publishes immediately. Users do not wait for an admin to approve the work. VERA routes the saved opening-metrics card to the platform’s assigned channel and publishes it under the selected credited stage or screen name:
 
-- PULSE: streams, sales, radio audience, chart points, and debut position
+- PULSE: streams, sales, radio audience, chart points, debut position, and new listeners
 - Lumi or Canvas: live viewers, same-day viewers, 7-day viewers, demographic rating, and audience score
-- FRAME: first-day and projected 7-day views, likes, comments, and average viewed
+- FRAME: first-day and projected 7-day views, likes, comments, average viewed, and new subscribers
 - Xposure: reach, impressions, Flashes, comments, and new Watchers
-- KNETIK: first-day views, likes, shares, completion rate, and new Watchers
+- KNETIK: first-day views, likes, shares, completion rate, and new Followers
 
 Persona registration is self-service. Only record-label registration and persona verification require approval. Work itself does not enter an approval queue.
 
@@ -165,7 +193,7 @@ Every instant release is automatically eligible for its matching chart. Rankings
 
 Use `/charts setup` once to choose a text channel, publication day, and Central Time publication hour. VERA checks the schedule automatically while the bot is online and publishes one weekly issue. Admins can use `/charts publish` to post the current issue immediately.
 
-Use `/charts artist` for career totals, chart peaks, recent releases, and accumulated Xposure/KNETIK Watchers. Use `/charts show` for a series overview and episode-by-episode ratings. When submitting an episode, select its parent show in the new `series` field.
+Use `/charts artist` for career totals, chart peaks, recent releases, and audiences across PULSE, FRAME, Xposure, and KNETIK. `/persona profile` also shows the persona's current audience totals. Use `/charts show` for a series overview and episode-by-episode ratings. When submitting an episode, select its parent show in the `series` field.
 
 ## Verification
 
@@ -179,7 +207,14 @@ VERA admins cannot approve verification unless that admin is also the server own
 
 ## Social channels and posts
 
-An admin connects the official channel for each network or platform using `/platform channel`, then adds its logo and hex color with `/platform branding`. Users can run `/post submit` or `/work submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. It appears under the chosen stage, screen, or social name with the persona’s linked Tupper avatar. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. Its activity adds Watchers to the persona’s career profile and enters the matching social chart. A credited name must already belong to that persona through `/persona alias-add`.
+An admin connects the official channel for each network or platform using `/platform channel`, then adds its logo and hex color with `/platform branding`. Users can run `/post submit` or `/work submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. It appears under the chosen stage, screen, or social name with the persona’s linked Tupper avatar. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. `/work submit` also accepts optional artwork for covers, release photos, and FRAME thumbnails. A credited name must already belong to that persona through `/persona alias-add`.
+
+Audience terminology follows each platform:
+
+- **Xposure:** Watchers
+- **KNETIK:** Followers
+- **FRAME:** Subscribers
+- **PULSE:** Listeners
 
 ## Timed promotion
 
@@ -202,7 +237,7 @@ VERA automatically parses messages from linked Tuppers:
 - `***bold italic text***` is treated as emphasized audible dialogue because bold takes priority.
 - Unformatted text is narration or context.
 
-Use `/rp parse` to test a message before relying on the classification. Parsed messages are stored in the local database so future activity and sentiment systems can use the correct context. Italic internal thoughts will never be treated as public speech.
+Use `/rp parse` to test a message before relying on the classification. Parsed messages are stored in Supabase so future activity and sentiment systems can use the correct context. Italic internal thoughts will never be treated as public speech.
 
 ## Current scope
 

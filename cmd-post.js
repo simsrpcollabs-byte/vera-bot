@@ -6,6 +6,7 @@ const { generateOpeningMetrics } = require('./metrics');
 const { buildSocialPostEmbed } = require('./socialPosts');
 const { isRegisteredIdentityName } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
+const { addAudience, audienceGain } = require('./audience');
 
 function validImageUrl(value) {
   if (!value) return null;
@@ -92,21 +93,14 @@ module.exports = {
       const workResult = db.prepare(`
         INSERT INTO works
           (guild_id, submitted_by, identity_id, platform_code, title, work_type, credited_name,
-           promo_level, status, reviewed_by, reviewed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'standard', 'released', ?, CURRENT_TIMESTAMP)
+           promo_level, status, reviewed_by, reviewed_at, media_url, media_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'standard', 'released', ?, CURRENT_TIMESTAMP, ?, ?)
       `).run(interaction.guildId, interaction.user.id, identityId, platformCode,
-        caption.slice(0, 100), workType, creditedName, interaction.user.id);
+        caption.slice(0, 100), workType, creditedName, interaction.user.id, mediaUrl, mediaType);
       const workId = Number(workResult.lastInsertRowid);
       const metrics = generateOpeningMetrics({ workId, title: caption.slice(0, 100), workType, platform, identity, promo: 'standard' });
       db.prepare(`INSERT INTO work_metrics (work_id, metrics_json) VALUES (?, ?)`).run(workId, JSON.stringify(metrics));
-      db.prepare(`
-        INSERT INTO social_profiles (guild_id, identity_id, platform_code, followers, activity_score, updated_at)
-        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(guild_id, identity_id, platform_code) DO UPDATE SET
-          followers = followers + excluded.followers,
-          activity_score = activity_score + excluded.activity_score,
-          updated_at = CURRENT_TIMESTAMP
-      `).run(interaction.guildId, identityId, platformCode, metrics.socialGain || 0, metrics.chart?.score || 0);
+      addAudience(db, interaction.guildId, identityId, platformCode, audienceGain(metrics), metrics.chart?.score || 0);
       const postResult = db.prepare(`
         INSERT INTO social_posts
           (guild_id, submitted_by, identity_id, work_id, platform_code, credited_name, caption, media_url, media_type, metrics_json)

@@ -4,6 +4,7 @@ const { identityChoices } = require('./autocomplete');
 const { isAdmin } = require('./access');
 const { chartDefinitions, buildChartWeek, getChart, movement, weekKeyFor } = require('./chartEngine');
 const { verifiedName } = require('./display');
+const { audienceLabel } = require('./audience');
 
 const chartCodes = ['songs', 'albums', 'television', 'frame', 'knetik', 'exposure'];
 const dayChoices = [
@@ -176,7 +177,7 @@ module.exports = {
           { name: 'Top 10s', value: String(stats.top_tens), inline: true },
           { name: '#1s', value: String(stats.number_ones), inline: true },
           { name: 'Career peak', value: stats.best_rank ? `#${stats.best_rank}` : 'Not charted', inline: true },
-          { name: 'Social following', value: social.length ? social.map((row) => `**${row.platform_code}:** ${Number(row.followers).toLocaleString()} Watchers`).join('\n') : 'No tracked following yet' },
+          { name: 'Platform audiences', value: social.length ? social.map((row) => `**${row.platform_code}:** ${Number(row.followers).toLocaleString()} ${audienceLabel(row.platform_code)}`).join('\n') : 'No tracked audience yet' },
           { name: 'Recent work', value: releases.length ? releases.map((work) => `**${work.title}** — ${work.credited_name}${work.peak ? ` · Peak #${work.peak}` : ''}`).join('\n') : 'No published work yet' },
         ).setFooter({ text: `Persona #${identity.id} · VERA career history` });
       return interaction.reply({ embeds: [embed] });

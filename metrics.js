@@ -75,6 +75,7 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
       const sales = whole((workType === 'album' ? 7_400 : 3_600) * impact * between(random, 0.82, 1.18));
       const units = whole((streams / 1250) + sales);
       const rank = rankFromImpact(impact * (workType === 'album' ? 1 : 0.82), 200);
+      const audienceGain = whole(streams * between(random, 0.001, 0.002));
       return {
         title: 'PULSE OPENING WEEK',
         description: `**${title}** opens at **#${rank}** on the Vortex 200.`,
@@ -85,9 +86,11 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
           field('Equivalent units', integer(units)),
           field('Vortex 200 debut', `#${rank}`),
           field('Listener score', `${sentiment}%`),
+          field('New PULSE listeners', `+${integer(audienceGain)}`),
         ],
         chart: { code: 'albums', name: 'Vortex 200', score: units, predictedRank: rank },
         raw: { streams, sales, units, sentiment },
+        audienceGain,
       };
     }
 
@@ -96,6 +99,7 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
     const radioAudience = whole(8_600_000 * impact * between(random, 0.65, 1.25));
     const chartPoints = whole((streams / 1600) + (sales * 2.8) + (radioAudience / 11000));
     const rank = rankFromImpact(impact, 100);
+    const audienceGain = whole(streams * between(random, 0.0015, 0.0035));
     return {
       title: 'PULSE OPENING METRICS',
       description: `**${title}** debuts at **#${rank}** on the Vortex Hot 100.`,
@@ -106,9 +110,11 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
         field('Radio audience', compact(radioAudience)),
         field('Chart points', integer(chartPoints)),
         field('Hot 100 debut', `#${rank}`),
+        field('New PULSE listeners', `+${integer(audienceGain)}`),
       ],
       chart: { code: 'songs', name: 'Vortex Hot 100', score: chartPoints, predictedRank: rank },
       raw: { streams, sales, radioAudience, chartPoints },
+      audienceGain,
     };
   }
 
@@ -140,6 +146,7 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
     const likes = whole(firstDay * between(random, 0.065, 0.13));
     const comments = whole(firstDay * between(random, 0.004, 0.012));
     const watchRate = clamp(Math.round(between(random, 42, 76) + (Number(identity.affinity) * 0.08)), 30, 92);
+    const audienceGain = whole(firstDay * between(random, 0.006, 0.018));
     return {
       title: 'FRAME OPENING METRICS',
       description: `**${title}** is now live on FRAME.`,
@@ -150,9 +157,11 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
         field('Likes', compact(likes)),
         field('Comments', compact(comments)),
         field('Average viewed', `${watchRate}%`),
+        field('New FRAME subscribers', `+${integer(audienceGain)}`),
       ],
       chart: { code: 'frame', name: 'FRAME Top Videos', score: sevenDay + (likes * 4) + (comments * 12) },
       raw: { firstDay, sevenDay, likes, comments, watchRate },
+      audienceGain,
     };
   }
 
@@ -176,6 +185,7 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
       chart: { code: 'exposure', name: 'Xposure Most Watched', score: reach + (flashes * 5) + (comments * 10) },
       raw: { reach, impressions, flashes, comments, watchers },
       socialGain: watchers,
+      audienceGain: watchers,
     };
   }
 
@@ -193,11 +203,12 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
       field('Likes', compact(likes)),
       field('Shares', compact(shares)),
       field('Completion rate', `${completion}%`),
-      field('New Watchers', compact(watchers)),
+      field('New Followers', compact(watchers)),
     ],
     chart: { code: 'knetik', name: 'KNETIK Trending', score: views + (likes * 4) + (shares * 12) },
     raw: { views, likes, shares, completion, watchers },
     socialGain: watchers,
+    audienceGain: watchers,
   };
 }
 
@@ -230,7 +241,7 @@ function applyPromotionBoost(originalMetrics, level, durationMinutes) {
     setField('First 24 hours', compact(raw.views));
     setField('Likes', compact(raw.likes));
     setField('Shares', compact(raw.shares));
-    setField('New Watchers', compact(raw.watchers));
+    setField('New Followers', compact(raw.watchers));
   }
   metrics.raw = raw;
   metrics.socialGain = raw.watchers;

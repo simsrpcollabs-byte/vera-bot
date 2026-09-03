@@ -12,6 +12,20 @@ async function captureTupperMessage(message) {
   `).get(message.guildId, message.webhookId);
   if (veraPublisher) return;
 
+  // Keep the linked proxy's current display name and avatar in sync. VERA
+  // publishes through its own webhook, but mirrors the real linked Tupper.
+  const avatarUrl = message.author.displayAvatarURL({ extension: 'png', size: 256 });
+  const linkedProxy = db.prepare(`
+    SELECT id FROM tupper_links
+    WHERE guild_id = ? AND webhook_id = ? AND LOWER(tupper_name) = LOWER(?) AND active = 1
+    ORDER BY id DESC LIMIT 1
+  `).get(message.guildId, message.webhookId, message.author.username);
+  if (linkedProxy) {
+    db.prepare(`
+      UPDATE tupper_links SET tupper_name = ?, tupper_avatar_url = ? WHERE id = ?
+    `).run(message.author.username, avatarUrl, linkedProxy.id);
+  }
+
   const now = new Date().toISOString();
   db.prepare(`
     UPDATE tupper_link_requests SET status = 'expired'
@@ -29,7 +43,6 @@ async function captureTupperMessage(message) {
 
   if (pending.length !== 1) return;
   const request = pending[0];
-  const avatarUrl = message.author.displayAvatarURL({ extension: 'png', size: 256 });
   const transaction = db.transaction(() => {
     // Relinking the same proxy replaces its previous active link instead of
     // leaving two identities attached to one Tupperbox persona.

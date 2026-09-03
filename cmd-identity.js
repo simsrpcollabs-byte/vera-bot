@@ -2,6 +2,7 @@ const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('./database');
 const { identityChoices } = require('./autocomplete');
 const { isAdmin, ownsIdentity } = require('./access');
+const { verifiedName, verificationLabel } = require('./display');
 
 const aliasTypes = [
   ['Stage name', 'stage'],
@@ -97,12 +98,13 @@ module.exports = {
       `).all(identityId);
       const embed = new EmbedBuilder()
         .setColor(0x6757ff)
-        .setTitle(identity.civilian_name)
+        .setTitle(verifiedName(identity.civilian_name, identity.verified))
         .setDescription(identity.bio || 'No biography has been added.')
         .addFields(
           { name: 'Identity ID', value: String(identity.id), inline: true },
           { name: 'Status', value: identity.status, inline: true },
           { name: 'Pronouns', value: identity.pronouns || 'Not listed', inline: true },
+          { name: 'Verification', value: verificationLabel(identity.verified), inline: true },
           {
             name: 'Professional names',
             value: aliases.length

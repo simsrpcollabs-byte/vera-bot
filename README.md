@@ -2,15 +2,22 @@
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
-VERA registers fictional entertainment identities, professional names, record labels, networks, platforms, and releases for The Vortex. This starter build establishes the database and approval workflow that later ratings, charts, streams, views, and social-growth simulations will use.
+VERA registers fictional entertainment identities, professional names, record labels, networks, platforms, and releases for The Vortex. Publishing work produces immediate opening ratings, streams, views, or social insights based on its platform.
 
 ## Included in Version 0.1
 
 - Civilian identities with separate stage, screen, former, professional, and social names
 - Record-label registration and rosters
 - Lumi, Canvas, PULSE, FRAME, Xposure, and KNETIK seeded automatically
-- Work submission with a chosen credited name and distributor
-- Admin approval queues
+- Instant work publishing with a chosen credited name and distributor
+- Platform-specific opening metrics saved with every published work
+- Live rankings for songs, albums, television, FRAME, Xposure, and KNETIK
+- Artist career summaries, social followings, and television episode histories
+- Automatic weekly VERA chart publication in a chosen Discord channel
+- Identity verification approved exclusively by the Discord server owner
+- Official Xposure and KNETIK channels with instant branded social posting
+- Timed sponsored placements that expire automatically and preserve the original post
+- Admin approval queues for identities and record labels
 - Admin-verified Tupperbox proxy linking
 - Automatic VORTEX RP formatting recognition for linked Tuppers
 - Local SQLite database with WAL mode
@@ -20,6 +27,7 @@ VERA registers fictional entertainment identities, professional names, record la
 - `/ping`
 - `/vera info`
 - `/platform list`
+- `/platform channel` (admin)
 - `/identity register`
 - `/identity alias-add`
 - `/identity profile`
@@ -29,6 +37,26 @@ VERA registers fictional entertainment identities, professional names, record la
 - `/label roster-add`
 - `/work submit`
 - `/work view`
+- `/post submit`
+- `/post view`
+- `/promo start`
+- `/promo status`
+- `/charts songs`
+- `/charts albums`
+- `/charts television`
+- `/charts frame`
+- `/charts exposure`
+- `/charts knetik`
+- `/charts artist`
+- `/charts show`
+- `/charts setup` (admin)
+- `/charts publish` (admin)
+- `/verified request`
+- `/verified status`
+- `/verified queue` (server owner)
+- `/verified approve` (server owner)
+- `/verified reject` (server owner)
+- `/verified revoke` (server owner)
 - `/admin queue`
 - `/admin approve`
 - `/admin reject`
@@ -107,6 +135,59 @@ The code can live in this private GitHub repository and be downloaded on each co
 
 The Tupperbox proxy attaches to the civilian person. Work submissions still choose the correct stage or professional name.
 
+## Instant publishing and metrics
+
+`/work submit` publishes immediately. Users do not wait for an admin to approve the work. VERA responds publicly with a saved opening-metrics card:
+
+- PULSE: streams, sales, radio audience, chart points, and debut position
+- Lumi or Canvas: live viewers, same-day viewers, 7-day viewers, demographic rating, and audience score
+- FRAME: first-day and projected 7-day views, likes, comments, and average viewed
+- Xposure: reach, impressions, Flashes, comments, and new Watchers
+- KNETIK: first-day views, likes, shares, completion rate, and new Watchers
+
+Identity and label approvals remain in place. They protect character ownership and prevent users from releasing work through an unverified label. Work itself does not enter an approval queue.
+
+## Charts and weekly publication
+
+Every instant release is automatically eligible for its matching chart. Rankings combine the saved opening metrics with platform-specific catalog decay and a small deterministic weekly variation. Viewing a chart never rerolls the underlying opening metrics.
+
+- PULSE songs enter the **Vortex Hot 100**.
+- PULSE albums and EPs enter the **Vortex 200**.
+- Lumi and Canvas releases enter **VORTEX Television**.
+- FRAME uploads enter **FRAME Top Videos**.
+- Xposure posts enter **Xposure Most Watched**.
+- KNETIK videos enter **KNETIK Trending**.
+
+Use `/charts setup` once to choose a text channel, publication day, and Central Time publication hour. VERA checks the schedule automatically while the bot is online and publishes one weekly issue. Admins can use `/charts publish` to post the current issue immediately.
+
+Use `/charts artist` for career totals, chart peaks, recent releases, and accumulated Xposure/KNETIK Watchers. Use `/charts show` for a series overview and episode-by-episode ratings. When submitting an episode, select its parent show in the new `series` field.
+
+## Verification
+
+Verification belongs to the fictional identity—not the player’s Discord account—so it follows the character across stage names, work releases, charts, career pages, and social posts. A verified name displays with a **✓** badge.
+
+1. The identity owner uses `/verified request`.
+2. The Discord server owner views `/verified queue`.
+3. Only the Discord server owner can use `/verified approve`, `/verified reject`, or `/verified revoke`.
+
+VERA admins cannot approve verification unless that admin is also the server owner.
+
+## Social channels and posts
+
+An admin first connects the official channels using `/platform channel` for Xposure and KNETIK. Users can then run `/post submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. Its activity adds Watchers to the identity’s career profile and enters the matching social chart. A credited stage name or handle must already belong to that identity through `/identity alias-add`.
+
+## Timed promotion
+
+Use `/promo start` with a post ID, promotion level, and duration. Available durations are 1 hour, 6 hours, 24 hours, 3 days, and 7 days. VERA posts a separate **Sponsored** placement in the official platform channel and shows its expiration time. When the campaign ends, VERA automatically:
+
+- applies the final reach, engagement, and Watcher boost;
+- saves the improved metrics and updates chart scoring;
+- refreshes the original social post;
+- removes the temporary sponsored placement; and
+- preserves the original post and promotion history.
+
+Use `/promo status` to view a post’s campaigns.
+
 ## VORTEX roleplay formatting
 
 VERA automatically parses messages from approved linked Tuppers:
@@ -120,4 +201,4 @@ Use `/rp parse` to test a message before relying on the classification. Parsed m
 
 ## Current scope
 
-This is the registration foundation. It does not simulate weekly television ratings, music charts, FRAME views, or social metrics yet. Those engines come next after the registry is running and tested.
+This build includes immediate opening metrics, rolling rankings, week-over-week movement, catalog decay, social-follower growth, career summaries, verification, official social posting, timed promotion, television histories, and automatic weekly publication. Deeper event boosts—award-show performances, soundtrack placements, controversies, collaborations, and cross-platform viral effects—remain a future simulation layer.

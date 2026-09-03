@@ -14,8 +14,10 @@ module.exports = {
         { name: 'Television', value: 'Lumi • Canvas', inline: true },
         { name: 'Music & Video', value: 'PULSE • FRAME', inline: true },
         { name: 'Social', value: 'Xposure • KNETIK', inline: true },
+        { name: 'Identity', value: 'Owner-approved verification ✓', inline: true },
+        { name: 'Promotion', value: 'Timed sponsored placements', inline: true },
       )
-      .setFooter({ text: 'Register talent, labels, and releases. Build career history.' });
+      .setFooter({ text: 'Register talent, publish content, run promo, and build career history.' });
     await interaction.reply({ embeds: [embed], ephemeral: true });
   },
 };

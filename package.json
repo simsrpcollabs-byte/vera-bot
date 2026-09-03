@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "deploy": "node deploy-commands.js",
-    "check": "node --check index.js && node --check deploy-commands.js && node --check database.js"
+    "check": "node --check index.js && node --check deploy-commands.js && node --check database.js && node --check metrics.js && node --check chartEngine.js && node --check cmd-charts.js && node --check cmd-verified.js && node --check cmd-post.js && node --check cmd-promo.js && node --check weeklyPublisher.js && node --check promotionScheduler.js"
   },
   "engines": {
     "node": ">=20 <24"

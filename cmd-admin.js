@@ -5,13 +5,11 @@ const { isAdmin } = require('./access');
 const categories = [
   { name: 'Identity', value: 'identity' },
   { name: 'Label', value: 'label' },
-  { name: 'Work', value: 'work' },
 ];
 
 const tableMap = {
   identity: { table: 'identities', name: 'civilian_name' },
   label: { table: 'labels', name: 'name' },
-  work: { table: 'works', name: 'title' },
 };
 
 module.exports = {

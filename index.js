@@ -9,6 +9,8 @@ require('./database');
 const commands = require('./commands');
 const { captureTupperMessage, handleTupperButton } = require('./tupperbox');
 const { recordLinkedRpMessage } = require('./rpParser');
+const { startWeeklyPublisher } = require('./weeklyPublisher');
+const { startPromotionScheduler } = require('./promotionScheduler');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -19,6 +21,8 @@ for (const command of commands) client.commands.set(command.data.name, command);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`VERA is online as ${readyClient.user.tag} (${readyClient.user.id}).`);
+  startWeeklyPublisher(readyClient);
+  startPromotionScheduler(readyClient);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

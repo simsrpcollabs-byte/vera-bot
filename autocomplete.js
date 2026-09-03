@@ -2,7 +2,7 @@ const db = require('./database');
 
 function choices(rows, labelKey = 'name') {
   return rows.slice(0, 25).map((row) => ({
-    name: `${row[labelKey]} (#${row.id ?? row.code})`.slice(0, 100),
+    name: `${row.verified ? '✓ ' : ''}${row[labelKey]} (#${row.id ?? row.code})`.slice(0, 100),
     value: String(row.id ?? row.code),
   }));
 }
@@ -11,7 +11,7 @@ function identityChoices(interaction, approvedOnly = false) {
   const focused = interaction.options.getFocused().toLowerCase();
   const statusSql = approvedOnly ? "AND status = 'approved'" : '';
   const rows = db.prepare(`
-    SELECT id, civilian_name AS name
+    SELECT id, civilian_name AS name, verified
     FROM identities
     WHERE guild_id = ? ${statusSql}
       AND (LOWER(civilian_name) LIKE ? OR CAST(id AS TEXT) LIKE ?)

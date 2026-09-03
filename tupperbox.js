@@ -5,6 +5,13 @@ async function captureTupperMessage(message) {
   // include an applicationId, so applicationId must not be used to exclude them.
   if (!message.guildId || !message.webhookId) return;
 
+  // Never treat one of VERA's own platform-publishing webhooks as a Tupper.
+  const veraPublisher = db.prepare(`
+    SELECT platform_code FROM platform_channels
+    WHERE guild_id = ? AND webhook_id = ? LIMIT 1
+  `).get(message.guildId, message.webhookId);
+  if (veraPublisher) return;
+
   const now = new Date().toISOString();
   db.prepare(`
     UPDATE tupper_link_requests SET status = 'expired'

@@ -3,7 +3,8 @@ const db = require('./database');
 const { identityChoices, labelChoices, platformChoices } = require('./autocomplete');
 const { isAdmin } = require('./access');
 const { generateOpeningMetrics } = require('./metrics');
-const { verifiedName, isRegisteredIdentityName } = require('./display');
+const { verifiedName, isRegisteredIdentityName, applyPlatformBrand } = require('./display');
+const { publishAsPersona } = require('./proxyPublisher');
 
 const workTypes = [
   ['Song', 'song'], ['Album', 'album'], ['EP', 'ep'],
@@ -73,7 +74,9 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     if (subcommand === 'view') {
       const work = db.prepare(`
-        SELECT w.*, i.civilian_name, i.verified, p.name AS platform_name, l.name AS label_name,
+        SELECT w.*, i.civilian_name, i.verified, p.name AS platform_name,
+               p.logo_url AS platform_logo_url, p.brand_color AS platform_brand_color,
+               l.name AS label_name,
                wm.metrics_json
         FROM works w
         JOIN identities i ON i.id = w.identity_id
@@ -96,14 +99,20 @@ module.exports = {
           { name: 'Promo', value: work.promo_level, inline: true },
           { name: 'Status', value: work.status, inline: true },
         );
+      let metricAccent = 0x28c8ff;
       if (work.metrics_json) {
         const metrics = JSON.parse(work.metrics_json);
+        metricAccent = metrics.accent || metricAccent;
         embed
           .setDescription(metrics.description)
           .setColor(metrics.accent)
           .addFields(...metrics.fields)
           .setFooter({ text: `Opening metrics · Work #${work.id}` });
       }
+      applyPlatformBrand(embed, {
+        logo_url: work.platform_logo_url,
+        brand_color: work.platform_brand_color,
+      }, metricAccent);
       return interaction.reply({ embeds: [embed] });
     }
 
@@ -122,6 +131,20 @@ module.exports = {
     if (!platform) return interaction.reply({ content: 'That platform was not found.', ephemeral: true });
     if (!allowedCategories[workType]?.includes(platform.category)) {
       return interaction.reply({ content: `A **${workType}** cannot be released through **${platform.name}**. Choose a matching network or platform.`, ephemeral: true });
+    }
+    const destination = db.prepare(`SELECT channel_id FROM platform_channels WHERE guild_id = ? AND platform_code = ?`)
+      .get(interaction.guildId, platformCode);
+    if (!destination) {
+      return interaction.reply({ content: `The official **${platform.name}** channel has not been assigned yet. Ask a VERA admin to use \`/platform channel\`.`, ephemeral: true });
+    }
+    const channel = await interaction.client.channels.fetch(destination.channel_id).catch(() => null);
+    if (!channel?.isTextBased()) {
+      return interaction.reply({ content: `VERA cannot access the official **${platform.name}** channel. Ask an admin to configure it again.`, ephemeral: true });
+    }
+    const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE guild_id = ? AND identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
+      .get(interaction.guildId, identityId);
+    if (!personaProxy) {
+      return interaction.reply({ content: 'Link this persona’s Tupperbox proxy with `/persona link-tupper` before publishing.', ephemeral: true });
     }
 
     const rawSeriesId = interaction.options.getString('series');
@@ -206,7 +229,6 @@ module.exports = {
 
     const { workId, metrics } = publish();
     const embed = new EmbedBuilder()
-      .setColor(metrics.accent)
       .setTitle(metrics.title)
       .setDescription(metrics.description)
       .addFields(
@@ -216,6 +238,23 @@ module.exports = {
         ...metrics.fields,
       )
       .setFooter({ text: `Work #${workId} · Published instantly · Metrics saved` });
-    return interaction.reply({ embeds: [embed] });
+    applyPlatformBrand(embed, platform, metrics.accent);
+    try {
+      const message = await publishAsPersona({
+        channel,
+        platformCode,
+        identityId,
+        creditedName,
+        payload: { embeds: [embed] },
+      });
+      const jumpUrl = `https://discord.com/channels/${interaction.guildId}/${channel.id}/${message.id}`;
+      return interaction.reply({ content: `Published **${title}** in ${channel} as **${creditedName}**. [View release](${jumpUrl})`, ephemeral: true });
+    } catch (error) {
+      console.error('Could not publish work through persona webhook:', error);
+      return interaction.reply({
+        content: `The metrics were saved as work #${workId}, but VERA could not post in ${channel}. Make sure VERA has **Manage Webhooks**, then try \`/work view id:${workId}\`.`,
+        ephemeral: true,
+      });
+    }
   },
 };

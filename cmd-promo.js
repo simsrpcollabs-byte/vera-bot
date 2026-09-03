@@ -3,6 +3,7 @@ const db = require('./database');
 const { isAdmin } = require('./access');
 const { applyPromotionBoost } = require('./metrics');
 const { buildSocialPostEmbed } = require('./socialPosts');
+const { publishAsPersona } = require('./proxyPublisher');
 
 const durations = [
   ['1 hour', 60], ['6 hours', 360], ['24 hours', 1440], ['3 days', 4320], ['7 days', 10080],
@@ -34,8 +35,9 @@ module.exports = {
   async execute(interaction) {
     const postId = interaction.options.getInteger('post_id');
     const post = db.prepare(`
-      SELECT sp.*, i.civilian_name, i.verified FROM social_posts sp
+      SELECT sp.*, i.civilian_name, i.verified, p.name AS platform_name, p.logo_url, p.brand_color FROM social_posts sp
       JOIN identities i ON i.id = sp.identity_id
+      JOIN platforms p ON p.code = sp.platform_code
       WHERE sp.guild_id = ? AND sp.id = ?
     `).get(interaction.guildId, postId);
     if (!post) return interaction.reply({ content: 'That social post was not found.', ephemeral: true });
@@ -70,9 +72,21 @@ module.exports = {
     const channel = await interaction.client.channels.fetch(destination.channel_id).catch(() => null);
     if (!channel?.isTextBased()) return interaction.editReply('VERA cannot access the configured platform channel.');
 
-    const promoEmbed = buildSocialPostEmbed(post, post, preview, { sponsored: true, expiresAtMs })
+    const promoEmbed = buildSocialPostEmbed(post, post, preview, { sponsored: true, expiresAtMs }, post)
       .addFields({ name: 'Campaign', value: `${level.toUpperCase()} promotion · projected campaign metrics`, inline: false });
-    const message = await channel.send({ embeds: [promoEmbed] });
+    let message;
+    try {
+      message = await publishAsPersona({
+        channel,
+        platformCode: post.platform_code,
+        identityId: post.identity_id,
+        creditedName: post.credited_name,
+        payload: { embeds: [promoEmbed] },
+      });
+    } catch (error) {
+      console.error('Could not publish promotion through persona webhook:', error);
+      return interaction.editReply('VERA could not publish this promotion. Confirm that the persona is linked and VERA has **Manage Webhooks** permission.');
+    }
     const result = db.prepare(`
       INSERT INTO promotions
         (guild_id, social_post_id, started_by, promo_level, duration_minutes,

@@ -9,6 +9,8 @@ VERA registers fictional entertainment personas, professional names, record labe
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Record-label registration and rosters
 - Lumi, Canvas, PULSE, FRAME, Xposure, and KNETIK seeded automatically
+- Custom platform logos, brand colors, and assigned Discord channels
+- Proxy-style publishing under each persona’s credited stage or screen name
 - Instant work publishing with a chosen credited name and distributor
 - Platform-specific opening metrics saved with every published work
 - Live rankings for songs, albums, television, FRAME, Xposure, and KNETIK
@@ -28,6 +30,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 - `/vera info`
 - `/platform list`
 - `/platform channel` (admin)
+- `/platform branding` (admin)
 - `/persona register`
 - `/persona alias-add`
 - `/persona profile`
@@ -107,6 +110,8 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 In the Discord Developer Portal, open **Bot → Privileged Gateway Intents** and enable **Message Content Intent**. VERA needs it to distinguish bold audible dialogue from italic actions and internal thoughts in linked Tupperbox messages.
 
+VERA also needs **Manage Webhooks**, **View Channel**, **Send Messages**, **Embed Links**, **Read Message History**, and **Use Slash Commands** permissions. Manage Webhooks lets VERA publish under the persona’s credited stage or screen name and linked Tupper avatar.
+
 ## GitHub browser upload
 
 You do not need GitHub Desktop.
@@ -137,7 +142,7 @@ The Tupperbox proxy attaches to the civilian person. Work submissions still choo
 
 ## Instant publishing and metrics
 
-`/work submit` publishes immediately. Users do not wait for an admin to approve the work. VERA responds publicly with a saved opening-metrics card:
+`/work submit` publishes immediately. Users do not wait for an admin to approve the work. VERA routes the saved opening-metrics card to the platform’s assigned channel and publishes it under the selected credited stage or screen name:
 
 - PULSE: streams, sales, radio audience, chart points, and debut position
 - Lumi or Canvas: live viewers, same-day viewers, 7-day viewers, demographic rating, and audience score
@@ -174,7 +179,7 @@ VERA admins cannot approve verification unless that admin is also the server own
 
 ## Social channels and posts
 
-An admin first connects the official channels using `/platform channel` for Xposure and KNETIK. Users can then run `/post submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. Its activity adds Watchers to the persona’s career profile and enters the matching social chart. A credited stage name or handle must already belong to that persona through `/persona alias-add`.
+An admin connects the official channel for each network or platform using `/platform channel`, then adds its logo and hex color with `/platform branding`. Users can run `/post submit` or `/work submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. It appears under the chosen stage, screen, or social name with the persona’s linked Tupper avatar. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. Its activity adds Watchers to the persona’s career profile and enters the matching social chart. A credited name must already belong to that persona through `/persona alias-add`.
 
 ## Timed promotion
 

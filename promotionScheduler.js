@@ -1,11 +1,14 @@
 const db = require('./database');
 const { applyPromotionBoost } = require('./metrics');
 const { buildSocialPostEmbed } = require('./socialPosts');
+const { ensurePlatformWebhook } = require('./proxyPublisher');
 
 async function completePromotion(client, promotion) {
   const post = db.prepare(`
-    SELECT sp.*, i.civilian_name, i.verified FROM social_posts sp
-    JOIN identities i ON i.id = sp.identity_id WHERE sp.id = ?
+    SELECT sp.*, i.civilian_name, i.verified, p.name AS platform_name, p.logo_url, p.brand_color
+    FROM social_posts sp
+    JOIN identities i ON i.id = sp.identity_id
+    JOIN platforms p ON p.code = sp.platform_code WHERE sp.id = ?
   `).get(promotion.social_post_id);
   if (!post) {
     db.prepare(`UPDATE promotions SET status = 'failed', completed_at = CURRENT_TIMESTAMP WHERE id = ?`).run(promotion.id);
@@ -30,15 +33,17 @@ async function completePromotion(client, promotion) {
 
   if (promotion.channel_id && promotion.message_id) {
     const promoChannel = await client.channels.fetch(promotion.channel_id).catch(() => null);
-    const promoMessage = promoChannel?.isTextBased()
-      ? await promoChannel.messages.fetch(promotion.message_id).catch(() => null) : null;
-    if (promoMessage) await promoMessage.delete().catch(() => {});
+    if (promoChannel?.isTextBased()) {
+      const webhook = await ensurePlatformWebhook(promoChannel, post.platform_code).catch(() => null);
+      if (webhook) await webhook.deleteMessage(promotion.message_id).catch(() => {});
+    }
   }
   if (post.channel_id && post.message_id) {
     const originalChannel = await client.channels.fetch(post.channel_id).catch(() => null);
-    const originalMessage = originalChannel?.isTextBased()
-      ? await originalChannel.messages.fetch(post.message_id).catch(() => null) : null;
-    if (originalMessage) await originalMessage.edit({ embeds: [buildSocialPostEmbed(post, post, metrics)] }).catch(() => {});
+    if (originalChannel?.isTextBased()) {
+      const webhook = await ensurePlatformWebhook(originalChannel, post.platform_code).catch(() => null);
+      if (webhook) await webhook.editMessage(post.message_id, { embeds: [buildSocialPostEmbed(post, post, metrics, {}, post)] }).catch(() => {});
+    }
   }
   console.log(`Completed promotion ${promotion.id} for social post ${post.id}.`);
 }

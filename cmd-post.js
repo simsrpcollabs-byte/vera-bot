@@ -5,6 +5,7 @@ const { isAdmin } = require('./access');
 const { generateOpeningMetrics } = require('./metrics');
 const { buildSocialPostEmbed } = require('./socialPosts');
 const { isRegisteredIdentityName } = require('./display');
+const { publishAsPersona } = require('./proxyPublisher');
 
 function validImageUrl(value) {
   if (!value) return null;
@@ -42,12 +43,14 @@ module.exports = {
     const subcommand = interaction.options.getSubcommand();
     if (subcommand === 'view') {
       const post = db.prepare(`
-        SELECT sp.*, i.civilian_name, i.verified
+        SELECT sp.*, i.civilian_name, i.verified, p.name AS platform_name,
+               p.logo_url, p.brand_color
         FROM social_posts sp JOIN identities i ON i.id = sp.identity_id
+        JOIN platforms p ON p.code = sp.platform_code
         WHERE sp.guild_id = ? AND sp.id = ?
       `).get(interaction.guildId, interaction.options.getInteger('id'));
       if (!post) return interaction.reply({ content: 'That social post was not found.', ephemeral: true });
-      return interaction.reply({ embeds: [buildSocialPostEmbed(post, post, JSON.parse(post.metrics_json))] });
+      return interaction.reply({ embeds: [buildSocialPostEmbed(post, post, JSON.parse(post.metrics_json), {}, post)] });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -66,6 +69,9 @@ module.exports = {
     if (!destination) return interaction.editReply(`A VERA admin must configure the official ${platform.name} channel with \`/platform channel\` first.`);
     const channel = await interaction.client.channels.fetch(destination.channel_id).catch(() => null);
     if (!channel?.isTextBased()) return interaction.editReply('VERA cannot access the configured platform channel. Ask an admin to configure it again.');
+    const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE guild_id = ? AND identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
+      .get(interaction.guildId, identityId);
+    if (!personaProxy) return interaction.editReply('Link this persona’s Tupperbox proxy with `/persona link-tupper` before publishing.');
 
     const attachment = interaction.options.getAttachment('media');
     if (attachment?.contentType && !attachment.contentType.startsWith('image/') && !attachment.contentType.startsWith('video/')) {
@@ -111,7 +117,19 @@ module.exports = {
     });
     const created = create();
     const post = { id: created.postId, platform_code: platformCode, credited_name: creditedName, caption, media_url: mediaUrl, media_type: mediaType, created_at: new Date().toISOString() };
-    const message = await channel.send({ embeds: [buildSocialPostEmbed(post, identity, created.metrics)] });
+    let message;
+    try {
+      message = await publishAsPersona({
+        channel,
+        platformCode,
+        identityId,
+        creditedName,
+        payload: { embeds: [buildSocialPostEmbed(post, identity, created.metrics, {}, platform)] },
+      });
+    } catch (error) {
+      console.error('Could not publish social post through persona webhook:', error);
+      return interaction.editReply(`The metrics were saved as post #${created.postId}, but VERA could not publish it. Make sure VERA has **Manage Webhooks** permission.`);
+    }
     db.prepare(`UPDATE social_posts SET channel_id = ?, message_id = ? WHERE id = ?`)
       .run(channel.id, message.id, created.postId);
     const jumpUrl = `https://discord.com/channels/${interaction.guildId}/${channel.id}/${message.id}`;

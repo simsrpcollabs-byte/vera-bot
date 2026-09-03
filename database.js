@@ -15,6 +15,8 @@ db.exec(`
     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
     category TEXT NOT NULL,
     description TEXT,
+    logo_url TEXT,
+    brand_color TEXT,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -169,6 +171,8 @@ db.exec(`
     guild_id TEXT NOT NULL,
     platform_code TEXT NOT NULL REFERENCES platforms(code) ON DELETE CASCADE,
     channel_id TEXT NOT NULL,
+    webhook_id TEXT,
+    webhook_token TEXT,
     configured_by TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(guild_id, platform_code)
@@ -275,6 +279,22 @@ if (!socialPostColumns.some((column) => column.name === 'media_type')) {
   db.exec(`ALTER TABLE social_posts ADD COLUMN media_type TEXT`);
 }
 
+const platformColumns = db.prepare(`PRAGMA table_info(platforms)`).all();
+if (!platformColumns.some((column) => column.name === 'logo_url')) {
+  db.exec(`ALTER TABLE platforms ADD COLUMN logo_url TEXT`);
+}
+
+const platformChannelColumns = db.prepare(`PRAGMA table_info(platform_channels)`).all();
+if (!platformChannelColumns.some((column) => column.name === 'webhook_id')) {
+  db.exec(`ALTER TABLE platform_channels ADD COLUMN webhook_id TEXT`);
+}
+if (!platformChannelColumns.some((column) => column.name === 'webhook_token')) {
+  db.exec(`ALTER TABLE platform_channels ADD COLUMN webhook_token TEXT`);
+}
+if (!platformColumns.some((column) => column.name === 'brand_color')) {
+  db.exec(`ALTER TABLE platforms ADD COLUMN brand_color TEXT`);
+}
+
 // Identity registration is self-service. Preserve rejected records, but make
 // any identities left in the former approval queue immediately usable.
 db.prepare(`
@@ -284,21 +304,22 @@ db.prepare(`
 `).run();
 
 const platforms = [
-  ['LUMI', 'Lumi', 'television', 'Television network'],
-  ['CANVAS', 'Canvas', 'television', 'Television network'],
-  ['PULSE', 'PULSE', 'music', 'Music streaming platform'],
-  ['FRAME', 'FRAME', 'video', 'Open video platform'],
-  ['XPOSURE', 'Xposure', 'social-profile', 'Profile-based social platform'],
-  ['KNETIK', 'KNETIK', 'social-short', 'Short-form social video platform'],
+  ['LUMI', 'Lumi', 'television', 'Television network', '8B63FF'],
+  ['CANVAS', 'Canvas', 'television', 'Television network', '6757FF'],
+  ['PULSE', 'PULSE', 'music', 'Music streaming platform', '2DDCFF'],
+  ['FRAME', 'FRAME', 'video', 'Open video platform', '17C3B2'],
+  ['XPOSURE', 'Xposure', 'social-profile', 'Profile-based social platform', 'FF5EDB'],
+  ['KNETIK', 'KNETIK', 'social-short', 'Short-form social video platform', 'FF7A67'],
 ];
 
 const seedPlatform = db.prepare(`
-  INSERT INTO platforms (code, name, category, description)
-  VALUES (?, ?, ?, ?)
+  INSERT INTO platforms (code, name, category, description, brand_color)
+  VALUES (?, ?, ?, ?, ?)
   ON CONFLICT(code) DO UPDATE SET
     name = excluded.name,
     category = excluded.category,
     description = excluded.description,
+    brand_color = COALESCE(platforms.brand_color, excluded.brand_color),
     active = 1
 `);
 

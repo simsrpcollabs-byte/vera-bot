@@ -14,7 +14,7 @@ module.exports = {
         { name: 'Television', value: 'Lumi • Canvas', inline: true },
         { name: 'Music & Video', value: 'PULSE • FRAME', inline: true },
         { name: 'Social', value: 'Xposure • KNETIK', inline: true },
-        { name: 'Identity', value: 'Owner-approved verification ✓', inline: true },
+        { name: 'Personas', value: 'Self-service registration · owner-approved verification ✓', inline: true },
         { name: 'Promotion', value: 'Timed sponsored placements', inline: true },
       )
       .setFooter({ text: 'Register talent, publish content, run promo, and build career history.' });

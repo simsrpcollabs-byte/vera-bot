@@ -11,15 +11,15 @@ function isServerOwner(interaction) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('verified')
-    .setDescription('Request and manage VERA identity verification.')
+    .setDescription('Request and manage VERA persona verification.')
     .addSubcommand((sub) => sub
       .setName('request')
-      .setDescription('Request verification for one of your approved identities.')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Identity to verify').setRequired(true).setAutocomplete(true)))
+      .setDescription('Request verification for one of your personas.')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Persona to verify').setRequired(true).setAutocomplete(true)))
     .addSubcommand((sub) => sub
       .setName('status')
-      .setDescription('View an identity’s verification status.')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Identity').setRequired(true).setAutocomplete(true)))
+      .setDescription('View a persona’s verification status.')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Persona').setRequired(true).setAutocomplete(true)))
     .addSubcommand((sub) => sub
       .setName('approve')
       .setDescription('Approve a verification request (server owner only).')
@@ -31,8 +31,8 @@ module.exports = {
       .addStringOption((opt) => opt.setName('reason').setDescription('Optional reason').setMaxLength(300)))
     .addSubcommand((sub) => sub
       .setName('revoke')
-      .setDescription('Remove verification from an identity (server owner only).')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Verified identity').setRequired(true).setAutocomplete(true)))
+      .setDescription('Remove verification from a persona (server owner only).')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Verified persona').setRequired(true).setAutocomplete(true)))
     .addSubcommand((sub) => sub
       .setName('queue')
       .setDescription('View pending requests (server owner only).')),
@@ -82,9 +82,9 @@ module.exports = {
       return interaction.reply({ content: `Verification request #${requestId} for **${request.civilian_name}** was **${status}**.${reason ? ` ${reason}` : ''}`, ephemeral: true });
     }
 
-    const identityId = Number(interaction.options.getString('identity'));
+    const identityId = Number(interaction.options.getString('persona'));
     const { identity, allowed } = ownsIdentity(db, interaction.guildId, identityId, interaction.user.id);
-    if (!identity || identity.status !== 'approved') return interaction.reply({ content: 'That approved identity was not found.', ephemeral: true });
+    if (!identity || identity.status !== 'approved') return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
 
     if (subcommand === 'status') {
       const pending = db.prepare(`SELECT id FROM verification_requests WHERE guild_id = ? AND identity_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1`)
@@ -102,7 +102,7 @@ module.exports = {
       return interaction.reply({ content: `Verification was removed from **${identity.civilian_name}**.`, ephemeral: true });
     }
 
-    if (!allowed) return interaction.reply({ content: 'Only the identity owner can request verification.', ephemeral: true });
+    if (!allowed) return interaction.reply({ content: 'Only the persona owner can request verification.', ephemeral: true });
     if (identity.verified) return interaction.reply({ content: `**${identity.civilian_name}** is already verified.`, ephemeral: true });
     const pending = db.prepare(`SELECT id FROM verification_requests WHERE guild_id = ? AND identity_id = ? AND status = 'pending'`).get(interaction.guildId, identityId);
     if (pending) return interaction.reply({ content: `Verification request #${pending.id} is already waiting for review.`, ephemeral: true });

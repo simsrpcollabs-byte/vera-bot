@@ -1,14 +1,9 @@
-const {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-} = require('discord.js');
 const db = require('./database');
-const { isAdmin } = require('./access');
 
 async function captureTupperMessage(message) {
-  if (!message.guildId || !message.webhookId || message.applicationId) return;
+  // Tupperbox proxies are webhook messages. Newer Tupperbox messages can also
+  // include an applicationId, so applicationId must not be used to exclude them.
+  if (!message.guildId || !message.webhookId) return;
 
   const now = new Date().toISOString();
   db.prepare(`
@@ -28,71 +23,57 @@ async function captureTupperMessage(message) {
   if (pending.length !== 1) return;
   const request = pending[0];
   const avatarUrl = message.author.displayAvatarURL({ extension: 'png', size: 256 });
-  db.prepare(`
-    UPDATE tupper_link_requests
-    SET status = 'captured', tupper_name = ?, tupper_avatar_url = ?,
-        webhook_id = ?, captured_message_id = ?
-    WHERE id = ?
-  `).run(message.author.username, avatarUrl, message.webhookId, message.id, request.id);
+  const transaction = db.transaction(() => {
+    // Relinking the same proxy replaces its previous active link instead of
+    // leaving two identities attached to one Tupperbox persona.
+    db.prepare(`
+      UPDATE tupper_links SET active = 0
+      WHERE guild_id = ? AND webhook_id = ? AND LOWER(tupper_name) = LOWER(?)
+    `).run(message.guildId, message.webhookId, message.author.username);
 
-  const embed = new EmbedBuilder()
-    .setColor(0xffc857)
-    .setTitle('Tupperbox link needs verification')
-    .setDescription(`Confirm that **${message.author.username}** belongs to <@${request.requested_by}> and should link to **${request.civilian_name}**.`)
-    .setThumbnail(avatarUrl)
-    .setFooter({ text: `Link request #${request.id}` });
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`tupper:approve:${request.id}`).setLabel('Approve link').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`tupper:reject:${request.id}`).setLabel('Reject').setStyle(ButtonStyle.Danger),
-  );
-  await message.channel.send({ embeds: [embed], components: [row] });
+    db.prepare(`
+      INSERT INTO tupper_links
+        (guild_id, identity_id, tupper_name, tupper_avatar_url, webhook_id, approved_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      request.guild_id,
+      request.identity_id,
+      message.author.username,
+      avatarUrl,
+      message.webhookId,
+      request.requested_by,
+    );
+
+    db.prepare(`
+      UPDATE tupper_link_requests
+      SET status = 'linked', tupper_name = ?, tupper_avatar_url = ?,
+          webhook_id = ?, captured_message_id = ?, approved_by = ?,
+          reviewed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      message.author.username,
+      avatarUrl,
+      message.webhookId,
+      message.id,
+      request.requested_by,
+      request.id,
+    );
+  });
+  transaction();
+
+  await message.channel.send({
+    content: `✅ <@${request.requested_by}> linked **${message.author.username}** to **${request.civilian_name}**. VERA will now recognize this Tupper automatically.`,
+    allowedMentions: { users: [request.requested_by] },
+  });
 }
 
 async function handleTupperButton(interaction) {
+  // Kept so old approval buttons fail gracefully after this update.
   if (!interaction.customId.startsWith('tupper:')) return false;
-  if (!isAdmin(interaction)) {
-    await interaction.reply({ content: 'Only a VERA admin can verify Tupperbox links.', ephemeral: true });
-    return true;
-  }
-
-  const [, action, rawId] = interaction.customId.split(':');
-  const requestId = Number(rawId);
-  const request = db.prepare(`SELECT * FROM tupper_link_requests WHERE id = ?`).get(requestId);
-  if (!request || request.guild_id !== interaction.guildId || request.status !== 'captured') {
-    await interaction.reply({ content: 'This link request is missing or has already been reviewed.', ephemeral: true });
-    return true;
-  }
-
-  if (action === 'approve') {
-    const transaction = db.transaction(() => {
-      db.prepare(`
-        INSERT INTO tupper_links
-          (guild_id, identity_id, tupper_name, tupper_avatar_url, webhook_id, approved_by)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        request.guild_id,
-        request.identity_id,
-        request.tupper_name,
-        request.tupper_avatar_url,
-        request.webhook_id,
-        interaction.user.id,
-      );
-      db.prepare(`
-        UPDATE tupper_link_requests
-        SET status = 'approved', approved_by = ?, reviewed_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(interaction.user.id, requestId);
-    });
-    transaction();
-    await interaction.update({ content: `Approved Tupperbox link #${requestId}.`, embeds: [], components: [] });
-  } else {
-    db.prepare(`
-      UPDATE tupper_link_requests
-      SET status = 'rejected', approved_by = ?, reviewed_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(interaction.user.id, requestId);
-    await interaction.update({ content: `Rejected Tupperbox link #${requestId}.`, embeds: [], components: [] });
-  }
+  await interaction.reply({
+    content: 'Tupper links are now activated automatically. Start a fresh link with `/persona link-tupper`.',
+    ephemeral: true,
+  });
   return true;
 }
 

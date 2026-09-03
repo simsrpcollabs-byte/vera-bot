@@ -3,19 +3,17 @@ const db = require('./database');
 const { isAdmin } = require('./access');
 
 const categories = [
-  { name: 'Identity', value: 'identity' },
   { name: 'Label', value: 'label' },
 ];
 
 const tableMap = {
-  identity: { table: 'identities', name: 'civilian_name' },
   label: { table: 'labels', name: 'name' },
 };
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('admin')
-    .setDescription('Approve or reject VERA registrations.')
+    .setDescription('Approve or reject record-label registrations.')
     .addSubcommand((sub) => sub
       .setName('queue')
       .setDescription('View pending registrations.')

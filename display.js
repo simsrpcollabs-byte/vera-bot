@@ -3,7 +3,7 @@ function verifiedName(name, verified) {
 }
 
 function verificationLabel(verified) {
-  return verified ? 'Verified VORTEX identity ✓' : 'Unverified';
+  return verified ? 'Verified VORTEX persona ✓' : 'Unverified';
 }
 
 function isRegisteredIdentityName(db, identity, name) {

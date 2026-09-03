@@ -275,6 +275,14 @@ if (!socialPostColumns.some((column) => column.name === 'media_type')) {
   db.exec(`ALTER TABLE social_posts ADD COLUMN media_type TEXT`);
 }
 
+// Identity registration is self-service. Preserve rejected records, but make
+// any identities left in the former approval queue immediately usable.
+db.prepare(`
+  UPDATE identities
+  SET status = 'approved', reviewed_by = owner_user_id, reviewed_at = CURRENT_TIMESTAMP
+  WHERE status = 'pending'
+`).run();
+
 const platforms = [
   ['LUMI', 'Lumi', 'television', 'Television network'],
   ['CANVAS', 'Canvas', 'television', 'Television network'],

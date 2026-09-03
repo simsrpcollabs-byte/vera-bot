@@ -26,7 +26,7 @@ module.exports = {
     .setDescription('Submit and view entertainment work.')
     .addSubcommand((sub) => {
       sub.setName('submit').setDescription('Publish work instantly and receive opening metrics.')
-        .addStringOption((opt) => opt.setName('identity').setDescription('Civilian identity responsible for the work').setRequired(true).setAutocomplete(true))
+        .addStringOption((opt) => opt.setName('persona').setDescription('Persona responsible for the work').setRequired(true).setAutocomplete(true))
         .addStringOption((opt) => opt.setName('title').setDescription('Title of the work').setRequired(true).setMaxLength(120))
         .addStringOption((opt) => {
           opt.setName('type').setDescription('Type of work').setRequired(true);
@@ -52,7 +52,7 @@ module.exports = {
 
   async autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
-    if (focused.name === 'identity') return interaction.respond(identityChoices(interaction, true));
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true));
     if (focused.name === 'label') return interaction.respond(labelChoices(interaction, true));
     if (focused.name === 'series') {
       const search = focused.value.toLowerCase();
@@ -88,7 +88,7 @@ module.exports = {
         .setTitle(work.title)
         .addFields(
           { name: 'Credited artist/creator', value: verifiedName(work.credited_name, work.verified), inline: true },
-          { name: 'Civilian identity', value: work.civilian_name, inline: true },
+          { name: 'Persona', value: work.civilian_name, inline: true },
           { name: 'Type', value: work.work_type, inline: true },
           { name: 'Platform', value: work.platform_name, inline: true },
           { name: 'Label', value: work.label_name || 'Independent / not applicable', inline: true },
@@ -107,13 +107,13 @@ module.exports = {
       return interaction.reply({ embeds: [embed] });
     }
 
-    const identityId = Number(interaction.options.getString('identity'));
+    const identityId = Number(interaction.options.getString('persona'));
     const identity = db.prepare(`
       SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
     `).get(interaction.guildId, identityId);
-    if (!identity) return interaction.reply({ content: 'That identity was not found or is not approved.', ephemeral: true });
+    if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
     if (identity.owner_user_id !== interaction.user.id && !isAdmin(interaction)) {
-      return interaction.reply({ content: 'Only the identity owner or an admin can submit work for this person.', ephemeral: true });
+      return interaction.reply({ content: 'Only the persona owner or an admin can submit work for this person.', ephemeral: true });
     }
 
     const workType = interaction.options.getString('type');
@@ -154,7 +154,7 @@ module.exports = {
     const title = interaction.options.getString('title').trim();
     const creditedName = interaction.options.getString('credited_name').trim();
     if (!isRegisteredIdentityName(db, identity, creditedName)) {
-      return interaction.reply({ content: 'That credited name is not registered to this identity. Add it first with `/identity alias-add`.', ephemeral: true });
+      return interaction.reply({ content: 'That credited name is not registered to this persona. Add it first with `/persona alias-add`.', ephemeral: true });
     }
     const releaseDate = interaction.options.getString('release_date');
     const promo = interaction.options.getString('promo') || 'standard';

@@ -2,7 +2,7 @@ const db = require('./database');
 const { parseRpMarkup } = require('./rpMarkup');
 
 async function recordLinkedRpMessage(message) {
-  if (!message.guildId || !message.webhookId || message.applicationId || !message.content) return null;
+  if (!message.guildId || !message.webhookId || !message.content) return null;
   const link = db.prepare(`
     SELECT identity_id
     FROM tupper_links

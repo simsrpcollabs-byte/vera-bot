@@ -2,11 +2,11 @@
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
-VERA registers fictional entertainment identities, professional names, record labels, networks, platforms, and releases for The Vortex. Publishing work produces immediate opening ratings, streams, views, or social insights based on its platform.
+VERA registers fictional entertainment personas, professional names, record labels, networks, platforms, and releases for The Vortex. Publishing work produces immediate opening ratings, streams, views, or social insights based on its platform.
 
 ## Included in Version 0.1
 
-- Civilian identities with separate stage, screen, former, professional, and social names
+- Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Record-label registration and rosters
 - Lumi, Canvas, PULSE, FRAME, Xposure, and KNETIK seeded automatically
 - Instant work publishing with a chosen credited name and distributor
@@ -14,11 +14,11 @@ VERA registers fictional entertainment identities, professional names, record la
 - Live rankings for songs, albums, television, FRAME, Xposure, and KNETIK
 - Artist career summaries, social followings, and television episode histories
 - Automatic weekly VERA chart publication in a chosen Discord channel
-- Identity verification approved exclusively by the Discord server owner
+- Persona verification approved exclusively by the Discord server owner
 - Official Xposure and KNETIK channels with instant branded social posting
 - Timed sponsored placements that expire automatically and preserve the original post
-- Admin approval queues for identities and record labels
-- Admin-verified Tupperbox proxy linking
+- Admin approval queue for record labels
+- Automatic Tupperbox proxy linking during persona registration
 - Automatic VORTEX RP formatting recognition for linked Tuppers
 - Local SQLite database with WAL mode
 
@@ -28,10 +28,10 @@ VERA registers fictional entertainment identities, professional names, record la
 - `/vera info`
 - `/platform list`
 - `/platform channel` (admin)
-- `/identity register`
-- `/identity alias-add`
-- `/identity profile`
-- `/identity link-tupper`
+- `/persona register`
+- `/persona alias-add`
+- `/persona profile`
+- `/persona link-tupper`
 - `/label register`
 - `/label view`
 - `/label roster-add`
@@ -127,11 +127,11 @@ The code can live in this private GitHub repository and be downloaded on each co
 
 ## Tupperbox linking
 
-1. Register the civilian person with `/identity register`.
-2. Add stage or screen names with `/identity alias-add`.
-3. Use `/identity link-tupper` in a designated linking channel.
-4. Send one message through the intended Tupperbox proxy within two minutes.
-5. A VERA admin verifies the proxy owner and approves the link.
+1. Register the person with `/persona register`.
+2. Within two minutes, send one message through that persona’s Tupperbox proxy in the same channel.
+3. VERA links the proxy automatically—no admin approval is needed.
+4. Add stage, screen, and social names with `/persona alias-add`.
+5. Use `/persona link-tupper` only when reconnecting or changing a proxy later.
 
 The Tupperbox proxy attaches to the civilian person. Work submissions still choose the correct stage or professional name.
 
@@ -145,7 +145,7 @@ The Tupperbox proxy attaches to the civilian person. Work submissions still choo
 - Xposure: reach, impressions, Flashes, comments, and new Watchers
 - KNETIK: first-day views, likes, shares, completion rate, and new Watchers
 
-Identity and label approvals remain in place. They protect character ownership and prevent users from releasing work through an unverified label. Work itself does not enter an approval queue.
+Persona registration is self-service. Only record-label registration and persona verification require approval. Work itself does not enter an approval queue.
 
 ## Charts and weekly publication
 
@@ -164,9 +164,9 @@ Use `/charts artist` for career totals, chart peaks, recent releases, and accumu
 
 ## Verification
 
-Verification belongs to the fictional identity—not the player’s Discord account—so it follows the character across stage names, work releases, charts, career pages, and social posts. A verified name displays with a **✓** badge.
+Verification belongs to the fictional persona—not the player’s Discord account—so it follows the character across stage names, work releases, charts, career pages, and social posts. A verified name displays with a **✓** badge.
 
-1. The identity owner uses `/verified request`.
+1. The persona owner uses `/verified request`.
 2. The Discord server owner views `/verified queue`.
 3. Only the Discord server owner can use `/verified approve`, `/verified reject`, or `/verified revoke`.
 
@@ -174,7 +174,7 @@ VERA admins cannot approve verification unless that admin is also the server own
 
 ## Social channels and posts
 
-An admin first connects the official channels using `/platform channel` for Xposure and KNETIK. Users can then run `/post submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. Its activity adds Watchers to the identity’s career profile and enters the matching social chart. A credited stage name or handle must already belong to that identity through `/identity alias-add`.
+An admin first connects the official channels using `/platform channel` for Xposure and KNETIK. Users can then run `/post submit` from any channel; VERA routes the finished branded post into the correct official channel automatically. A post can include an uploaded image or video, or a direct media URL, and immediately receives platform metrics. Its activity adds Watchers to the persona’s career profile and enters the matching social chart. A credited stage name or handle must already belong to that persona through `/persona alias-add`.
 
 ## Timed promotion
 
@@ -190,7 +190,7 @@ Use `/promo status` to view a post’s campaigns.
 
 ## VORTEX roleplay formatting
 
-VERA automatically parses messages from approved linked Tuppers:
+VERA automatically parses messages from linked Tuppers:
 
 - `**bold text**` is audible dialogue that other characters can hear.
 - `*italic text*` or `_italic text_` is an action or internal thought and is not audible.

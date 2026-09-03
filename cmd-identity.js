@@ -14,18 +14,18 @@ const aliasTypes = [
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('identity')
-    .setDescription('Register and manage a fictional person and their professional names.')
+    .setName('persona')
+    .setDescription('Register and manage a VORTEX persona and their professional names.')
     .addSubcommand((sub) => sub
       .setName('register')
-      .setDescription('Register a fictional person by civilian name.')
+      .setDescription('Register a persona and begin linking their Tupperbox proxy.')
       .addStringOption((opt) => opt.setName('civilian_name').setDescription('Their civilian name').setRequired(true).setMaxLength(80))
       .addStringOption((opt) => opt.setName('pronouns').setDescription('Optional pronouns').setMaxLength(40))
       .addStringOption((opt) => opt.setName('bio').setDescription('Optional short bio').setMaxLength(500)))
     .addSubcommand((sub) => sub
       .setName('alias-add')
       .setDescription('Add a stage, screen, former, or social name.')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Select the civilian identity').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select the persona').setRequired(true).setAutocomplete(true))
       .addStringOption((opt) => {
         opt.setName('type').setDescription('Alias type').setRequired(true);
         for (const [name, value] of aliasTypes) opt.addChoices({ name, value });
@@ -35,12 +35,12 @@ module.exports = {
       .addStringOption((opt) => opt.setName('industry').setDescription('Music, acting, directing, social, etc.').setMaxLength(60)))
     .addSubcommand((sub) => sub
       .setName('profile')
-      .setDescription('View a registered identity.')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Select an identity').setRequired(false).setAutocomplete(true)))
+      .setDescription('View a registered persona.')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select a persona').setRequired(false).setAutocomplete(true)))
     .addSubcommand((sub) => sub
       .setName('link-tupper')
-      .setDescription('Begin linking a Tupperbox proxy to a civilian identity.')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Select the civilian identity').setRequired(true).setAutocomplete(true))),
+      .setDescription('Reconnect or change a persona’s Tupperbox proxy.')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select the persona').setRequired(true).setAutocomplete(true))),
 
   async autocomplete(interaction) {
     await interaction.respond(identityChoices(interaction));
@@ -56,26 +56,41 @@ module.exports = {
         WHERE guild_id = ? AND owner_user_id = ? AND LOWER(civilian_name) = LOWER(?)
       `).get(interaction.guildId, interaction.user.id, civilianName);
       if (duplicate) {
-        return interaction.reply({ content: `You already registered that civilian identity as #${duplicate.id}.`, ephemeral: true });
+        return interaction.reply({ content: `You already registered that persona as #${duplicate.id}.`, ephemeral: true });
       }
 
-      const result = db.prepare(`
-        INSERT INTO identities (guild_id, owner_user_id, civilian_name, pronouns, bio)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        interaction.guildId,
-        interaction.user.id,
-        civilianName,
-        interaction.options.getString('pronouns'),
-        interaction.options.getString('bio'),
-      );
+      const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+      const register = db.transaction(() => {
+        const result = db.prepare(`
+          INSERT INTO identities (guild_id, owner_user_id, civilian_name, pronouns, bio, status, reviewed_by, reviewed_at)
+          VALUES (?, ?, ?, ?, ?, 'approved', ?, CURRENT_TIMESTAMP)
+        `).run(
+          interaction.guildId,
+          interaction.user.id,
+          civilianName,
+          interaction.options.getString('pronouns'),
+          interaction.options.getString('bio'),
+          interaction.user.id,
+        );
+        db.prepare(`
+          UPDATE tupper_link_requests SET status = 'expired'
+          WHERE guild_id = ? AND requested_by = ? AND status = 'awaiting_message'
+        `).run(interaction.guildId, interaction.user.id);
+        const link = db.prepare(`
+          INSERT INTO tupper_link_requests
+            (guild_id, identity_id, requested_by, channel_id, expires_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(interaction.guildId, result.lastInsertRowid, interaction.user.id, interaction.channelId, expiresAt);
+        return { personaId: Number(result.lastInsertRowid), linkId: Number(link.lastInsertRowid) };
+      });
+      const result = register();
       return interaction.reply({
-        content: `**${civilianName}** was submitted as identity #${result.lastInsertRowid}. An admin must approve it before official releases can use it.`,
+        content: `**${civilianName}** is registered as persona #${result.personaId} and is ready to use. Now send one message through their Tupperbox proxy in this channel within two minutes; VERA will link it automatically.`,
         ephemeral: true,
       });
     }
 
-    const rawId = interaction.options.getString('identity');
+    const rawId = interaction.options.getString('persona');
     if (subcommand === 'profile' && !rawId) {
       const rows = db.prepare(`
         SELECT id, civilian_name, status FROM identities
@@ -83,13 +98,13 @@ module.exports = {
       `).all(interaction.guildId, interaction.user.id);
       const text = rows.length
         ? rows.map((row) => `#${row.id} — **${row.civilian_name}** (${row.status})`).join('\n')
-        : 'You have not registered any identities yet.';
+        : 'You have not registered any personas yet.';
       return interaction.reply({ content: text, ephemeral: true });
     }
 
     const identityId = Number(rawId);
     const { identity, allowed } = ownsIdentity(db, interaction.guildId, identityId, interaction.user.id);
-    if (!identity) return interaction.reply({ content: 'That identity was not found.', ephemeral: true });
+    if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
 
     if (subcommand === 'profile') {
       const aliases = db.prepare(`
@@ -101,7 +116,7 @@ module.exports = {
         .setTitle(verifiedName(identity.civilian_name, identity.verified))
         .setDescription(identity.bio || 'No biography has been added.')
         .addFields(
-          { name: 'Identity ID', value: String(identity.id), inline: true },
+          { name: 'Persona ID', value: String(identity.id), inline: true },
           { name: 'Status', value: identity.status, inline: true },
           { name: 'Pronouns', value: identity.pronouns || 'Not listed', inline: true },
           { name: 'Verification', value: verificationLabel(identity.verified), inline: true },
@@ -116,7 +131,7 @@ module.exports = {
     }
 
     if (!allowed && !isAdmin(interaction)) {
-      return interaction.reply({ content: 'Only the identity owner or an admin can make that change.', ephemeral: true });
+      return interaction.reply({ content: 'Only the persona owner or an admin can make that change.', ephemeral: true });
     }
 
     if (subcommand === 'alias-add') {
@@ -130,7 +145,7 @@ module.exports = {
         `).run(identityId, aliasType, aliasName, industry);
       } catch (error) {
         if (error.code?.startsWith('SQLITE_CONSTRAINT')) {
-          return interaction.reply({ content: 'That alias is already attached to this identity.', ephemeral: true });
+          return interaction.reply({ content: 'That alias is already attached to this persona.', ephemeral: true });
         }
         throw error;
       }
@@ -150,7 +165,7 @@ module.exports = {
         VALUES (?, ?, ?, ?, ?)
       `).run(interaction.guildId, identityId, interaction.user.id, interaction.channelId, expiresAt);
       return interaction.reply({
-        content: `Link request #${result.lastInsertRowid} started for **${identity.civilian_name}**. Within two minutes, send one message in this channel through the correct Tupperbox proxy. An admin will verify it before the link becomes active.`,
+        content: `Link request #${result.lastInsertRowid} started for **${identity.civilian_name}**. Within two minutes, send one message in this channel through the correct Tupperbox proxy. VERA will link it automatically.`,
         ephemeral: true,
       });
     }

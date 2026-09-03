@@ -13,7 +13,7 @@ function buildSocialPostEmbed(post, identity, metrics, options = {}) {
     .setTitle(options.sponsored ? `${platformName} · Sponsored` : platformName)
     .setDescription(post.caption)
     .addFields(...(metrics?.fields || []).slice(0, 5))
-    .setFooter({ text: `${identity.verified ? 'Verified VORTEX identity · ' : ''}Post #${post.id}` })
+    .setFooter({ text: `${identity.verified ? 'Verified VORTEX persona · ' : ''}Post #${post.id}` })
     .setTimestamp(new Date(post.created_at || Date.now()));
   if (post.media_url && post.media_type?.startsWith('image/')) embed.setImage(post.media_url);
   else if (post.media_url) embed.addFields({ name: 'Media', value: `[View upload](${post.media_url})`, inline: false });

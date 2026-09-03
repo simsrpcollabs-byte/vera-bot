@@ -84,7 +84,7 @@ module.exports = {
       .addSubcommand((sub) => sub
         .setName('artist')
         .setDescription('View an artist or creator career summary.')
-        .addStringOption((opt) => opt.setName('identity').setDescription('Artist or creator').setRequired(true).setAutocomplete(true)))
+        .addStringOption((opt) => opt.setName('persona').setDescription('Artist or creator persona').setRequired(true).setAutocomplete(true)))
       .addSubcommand((sub) => sub
         .setName('show')
         .setDescription('View a series and its episode ratings history.')
@@ -106,7 +106,7 @@ module.exports = {
 
   async autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
-    if (focused.name === 'identity') return interaction.respond(identityChoices(interaction, true));
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true));
     const search = focused.value.toLowerCase();
     const shows = db.prepare(`
       SELECT id, title, credited_name FROM works
@@ -150,9 +150,9 @@ module.exports = {
 
     if (subcommand === 'artist') {
       buildChartWeek(interaction.guildId);
-      const identityId = Number(interaction.options.getString('identity'));
+      const identityId = Number(interaction.options.getString('persona'));
       const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`).get(interaction.guildId, identityId);
-      if (!identity) return interaction.reply({ content: 'That approved identity was not found.', ephemeral: true });
+      if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
       const stats = db.prepare(`
         SELECT COUNT(DISTINCT w.id) AS releases,
           COUNT(DISTINCT CASE WHEN ce.rank = 1 THEN w.id END) AS number_ones,
@@ -178,7 +178,7 @@ module.exports = {
           { name: 'Career peak', value: stats.best_rank ? `#${stats.best_rank}` : 'Not charted', inline: true },
           { name: 'Social following', value: social.length ? social.map((row) => `**${row.platform_code}:** ${Number(row.followers).toLocaleString()} Watchers`).join('\n') : 'No tracked following yet' },
           { name: 'Recent work', value: releases.length ? releases.map((work) => `**${work.title}** — ${work.credited_name}${work.peak ? ` · Peak #${work.peak}` : ''}`).join('\n') : 'No published work yet' },
-        ).setFooter({ text: `Identity #${identity.id} · VERA career history` });
+        ).setFooter({ text: `Persona #${identity.id} · VERA career history` });
       return interaction.reply({ embeds: [embed] });
     }
 

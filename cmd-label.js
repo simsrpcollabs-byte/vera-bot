@@ -19,14 +19,14 @@ module.exports = {
       .addStringOption((opt) => opt.setName('label').setDescription('Select a label').setRequired(true).setAutocomplete(true)))
     .addSubcommand((sub) => sub
       .setName('roster-add')
-      .setDescription('Add an approved identity to a label roster.')
+      .setDescription('Add a persona to an approved label roster.')
       .addStringOption((opt) => opt.setName('label').setDescription('Select a label').setRequired(true).setAutocomplete(true))
-      .addStringOption((opt) => opt.setName('identity').setDescription('Select an approved artist').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select an artist persona').setRequired(true).setAutocomplete(true))
       .addStringOption((opt) => opt.setName('credited_name').setDescription('Stage name used on this roster').setMaxLength(80))),
 
   async autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
-    if (focused.name === 'identity') return interaction.respond(identityChoices(interaction, true));
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true));
     return interaction.respond(labelChoices(interaction));
   },
 
@@ -89,11 +89,11 @@ module.exports = {
       return interaction.reply({ content: 'The label must be approved before artists can join its roster.', ephemeral: true });
     }
 
-    const identityId = Number(interaction.options.getString('identity'));
+    const identityId = Number(interaction.options.getString('persona'));
     const identity = db.prepare(`
       SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
     `).get(interaction.guildId, identityId);
-    if (!identity) return interaction.reply({ content: 'That artist was not found or is not approved.', ephemeral: true });
+    if (!identity) return interaction.reply({ content: 'That artist persona was not found.', ephemeral: true });
 
     db.prepare(`
       INSERT INTO label_roster (label_id, identity_id, credited_name)

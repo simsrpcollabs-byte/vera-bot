@@ -21,7 +21,7 @@ module.exports = {
     .addSubcommand((sub) => sub
       .setName('submit')
       .setDescription('Publish a social post in its official platform channel.')
-      .addStringOption((opt) => opt.setName('identity').setDescription('Civilian identity behind the account').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('persona').setDescription('Persona behind the account').setRequired(true).setAutocomplete(true))
       .addStringOption((opt) => opt.setName('platform').setDescription('Social platform').setRequired(true).addChoices(
         { name: 'Xposure', value: 'XPOSURE' }, { name: 'KNETIK', value: 'KNETIK' },
       ))
@@ -51,12 +51,12 @@ module.exports = {
     }
 
     await interaction.deferReply({ ephemeral: true });
-    const identityId = Number(interaction.options.getString('identity'));
+    const identityId = Number(interaction.options.getString('persona'));
     const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
       .get(interaction.guildId, identityId);
-    if (!identity) return interaction.editReply('That approved identity was not found.');
+    if (!identity) return interaction.editReply('That persona was not found.');
     if (identity.owner_user_id !== interaction.user.id && !isAdmin(interaction)) {
-      return interaction.editReply('Only the identity owner or a VERA admin can publish for this account.');
+      return interaction.editReply('Only the persona owner or a VERA admin can publish for this account.');
     }
 
     const platformCode = interaction.options.getString('platform');
@@ -78,7 +78,7 @@ module.exports = {
     const caption = interaction.options.getString('caption').trim();
     const creditedName = interaction.options.getString('credited_name').trim();
     if (!isRegisteredIdentityName(db, identity, creditedName)) {
-      return interaction.editReply('That stage name or handle is not registered to this identity. Add it first with `/identity alias-add`.');
+      return interaction.editReply('That stage name or handle is not registered to this persona. Add it first with `/persona alias-add`.');
     }
     const workType = platformCode === 'XPOSURE' ? 'xposure_post' : 'knetik_video';
 

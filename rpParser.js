@@ -1,5 +1,6 @@
 const db = require('./database');
 const { parseRpMarkup } = require('./rpMarkup');
+const { processRpBuzz } = require('./rpBuzz');
 
 async function recordLinkedRpMessage(message) {
   if (!message.guildId || !message.webhookId || !message.content) return null;
@@ -12,7 +13,7 @@ async function recordLinkedRpMessage(message) {
   if (!link) return null;
 
   const parsed = parseRpMarkup(message.content);
-  db.prepare(`
+  const saved = db.prepare(`
     INSERT OR IGNORE INTO rp_messages
       (guild_id, channel_id, message_id, identity_id, raw_content,
        audible_dialogue, actions_and_thoughts, narration)
@@ -27,6 +28,7 @@ async function recordLinkedRpMessage(message) {
     JSON.stringify(parsed.actionsAndThoughts),
     JSON.stringify(parsed.narration),
   );
+  if (saved.changes) processRpBuzz({ message, speakerIdentityId: link.identity_id, parsed });
   return parsed;
 }
 

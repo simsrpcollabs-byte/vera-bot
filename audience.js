@@ -3,6 +3,7 @@ const LABELS = {
   KNETIK: 'Followers',
   FRAME: 'Subscribers',
   PULSE: 'Listeners',
+  ECHO: 'Listeners',
 };
 
 function audienceLabel(platformCode) {

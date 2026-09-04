@@ -4,18 +4,44 @@ const config = require('./config');
 
 // Keep VERA's existing synchronous query API while a dedicated worker owns
 // the asynchronous Supabase/Postgres connection.
-const worker = new Worker(path.join(__dirname, 'database-worker.js'), {
-  workerData: { connectionString: config.databaseUrl, ssl: config.databaseSsl },
-});
 const BUFFER_BYTES = 8 * 1024 * 1024;
+let worker = null;
+let workerFailure = null;
+let closing = false;
+
+function createWorker() {
+  const next = new Worker(path.join(__dirname, 'database-worker.js'), {
+    workerData: { connectionString: config.databaseUrl, ssl: config.databaseSsl },
+  });
+  workerFailure = null;
+  next.on('error', (error) => { workerFailure = error; });
+  next.on('exit', (code) => {
+    if (!closing && code !== 0) workerFailure = new Error(`Database worker exited with code ${code}.`);
+    if (worker === next) worker = null;
+  });
+  worker = next;
+  return next;
+}
+
+function activeWorker() {
+  if (closing) throw new Error('The database connection is closing.');
+  if (!worker || workerFailure) {
+    if (worker) worker.terminate().catch(() => {});
+    return createWorker();
+  }
+  return worker;
+}
 
 function callDatabase(operation, sql = null, args = []) {
   const shared = new SharedArrayBuffer(BUFFER_BYTES);
   const state = new Int32Array(shared, 0, 2);
   const bytes = new Uint8Array(shared, 8);
-  worker.postMessage({ shared, operation, sql, args });
-  if (Atomics.wait(state, 0, 0, 30_000) === 'timed-out') {
-    throw new Error('Supabase did not respond within 30 seconds. Check DATABASE_URL and Railway networking.');
+  const target = activeWorker();
+  target.postMessage({ shared, operation, sql, args });
+  if (Atomics.wait(state, 0, 0, 15_000) === 'timed-out') {
+    workerFailure = new Error('Supabase request timed out.');
+    target.terminate().catch(() => {});
+    throw new Error('Supabase did not respond within 15 seconds. VERA reset the database connection; try once more.');
   }
   const length = Atomics.load(state, 1);
   const payload = JSON.parse(Buffer.from(bytes.subarray(0, length)).toString('utf8'));
@@ -51,9 +77,14 @@ const db = {
     };
   },
   close() {
-    try { callDatabase('close'); } finally { worker.terminate(); }
+    try { callDatabase('close'); } finally {
+      closing = true;
+      if (worker) worker.terminate().catch(() => {});
+      worker = null;
+    }
   },
 };
 
+createWorker();
 callDatabase('init');
 module.exports = db;

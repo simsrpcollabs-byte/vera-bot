@@ -2,11 +2,11 @@ const { EmbedBuilder } = require('discord.js');
 const { verifiedName, platformColor } = require('./display');
 
 function buildSocialPostEmbed(post, identity, metrics, options = {}, platform = null) {
-  const platformName = platform?.name || (post.platform_code === 'XPOSURE' ? 'Xposure' : 'KNETIK');
+  const platformName = platform?.name || ({ XPOSURE: 'Xposure', KNETIK: 'KNETIK', ECHO: 'ECHO' }[post.platform_code] || post.platform_code);
   const embed = new EmbedBuilder()
     .setColor(platformColor(platform, post.platform_code === 'XPOSURE' ? 0xff5edb : 0xff7a67))
     .setAuthor({ name: verifiedName(post.credited_name, identity.verified) })
-    .setTitle(options.sponsored ? `${platformName} · Sponsored` : platformName)
+    .setTitle(options.sponsored ? `${platformName} · Sponsored` : (post.platform_code === 'ECHO' ? `${platformName} · Voice` : platformName))
     .setDescription(post.caption)
     .addFields(...(metrics?.fields || []).slice(0, 5))
     .setFooter({ text: `${identity.verified ? 'Verified VORTEX persona · ' : ''}Post #${post.id}` })

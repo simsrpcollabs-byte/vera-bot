@@ -7,6 +7,7 @@ const { buildSocialPostEmbed } = require('./socialPosts');
 const { isRegisteredIdentityName } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
 const { addAudience, audienceGain } = require('./audience');
+const { formatBuzz, getWorkBuzz } = require('./rpBuzz');
 
 function validImageUrl(value) {
   if (!value) return null;
@@ -19,13 +20,13 @@ function validImageUrl(value) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('post')
-    .setDescription('Publish and view Xposure or KNETIK content.')
+    .setDescription('Publish and view Xposure, KNETIK, or ECHO content.')
     .addSubcommand((sub) => sub
       .setName('submit')
       .setDescription('Publish a social post in its official platform channel.')
       .addStringOption((opt) => opt.setName('persona').setDescription('Persona behind the account').setRequired(true).setAutocomplete(true))
       .addStringOption((opt) => opt.setName('platform').setDescription('Social platform').setRequired(true).addChoices(
-        { name: 'Xposure', value: 'XPOSURE' }, { name: 'KNETIK', value: 'KNETIK' },
+        { name: 'Xposure', value: 'XPOSURE' }, { name: 'KNETIK', value: 'KNETIK' }, { name: 'ECHO', value: 'ECHO' },
       ))
       .addStringOption((opt) => opt.setName('credited_name').setDescription('Stage name or social handle shown publicly').setRequired(true).setMaxLength(80))
       .addStringOption((opt) => opt.setName('caption').setDescription('Post caption').setRequired(true).setMaxLength(1800))
@@ -51,7 +52,12 @@ module.exports = {
         WHERE sp.guild_id = ? AND sp.id = ?
       `).get(interaction.guildId, interaction.options.getInteger('id'));
       if (!post) return interaction.reply({ content: 'That social post was not found.', ephemeral: true });
-      return interaction.reply({ embeds: [buildSocialPostEmbed(post, post, JSON.parse(post.metrics_json), {}, post)] });
+      const embed = buildSocialPostEmbed(post, post, JSON.parse(post.metrics_json), {}, post);
+      embed.addFields({ name: '🎭 Organic RP impact', value: formatBuzz(getWorkBuzz(post.work_id), post.platform_code) });
+      const engagement = db.prepare(`SELECT COUNT(*) AS total FROM content_engagements WHERE guild_id = ? AND work_id = ?`)
+        .get(interaction.guildId, post.work_id);
+      if (Number(engagement.total)) embed.addFields({ name: '💫 Community activity', value: `**${Number(engagement.total).toLocaleString()}** engagement${Number(engagement.total) === 1 ? '' : 's'}` });
+      return interaction.reply({ embeds: [embed] });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -87,7 +93,8 @@ module.exports = {
     if (!isRegisteredIdentityName(db, identity, creditedName)) {
       return interaction.editReply('That stage name or handle is not registered to this persona. Add it first with `/persona alias-add`.');
     }
-    const workType = platformCode === 'XPOSURE' ? 'xposure_post' : 'knetik_video';
+    const workType = platformCode === 'XPOSURE' ? 'xposure_post'
+      : platformCode === 'ECHO' ? 'echo_voice' : 'knetik_video';
 
     const create = db.transaction(() => {
       const workResult = db.prepare(`

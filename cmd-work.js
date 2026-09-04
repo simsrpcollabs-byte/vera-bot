@@ -6,6 +6,7 @@ const { generateOpeningMetrics } = require('./metrics');
 const { verifiedName, isRegisteredIdentityName, applyPlatformBrand } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
 const { addAudience, audienceGain } = require('./audience');
+const { formatBuzz, getWorkBuzz } = require('./rpBuzz');
 
 const workTypes = [
   ['Song', 'song'], ['Album', 'album'], ['EP', 'ep'],
@@ -111,6 +112,18 @@ module.exports = {
           .addFields(...metrics.fields)
           .setFooter({ text: `Opening metrics · Work #${work.id}` });
       }
+      const buzz = getWorkBuzz(work.id);
+      embed.addFields({ name: '🎭 Organic RP impact', value: formatBuzz(buzz, work.platform_code) });
+      const engagement = db.prepare(`
+        SELECT COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE engagement_type IN ('comment','reply','review')) AS responses,
+          ROUND(AVG(rating)::numeric, 1) AS average_rating
+        FROM content_engagements WHERE guild_id = ? AND work_id = ?
+      `).get(interaction.guildId, work.id);
+      if (Number(engagement.total)) embed.addFields({
+        name: '💫 VERA community activity',
+        value: `**${Number(engagement.total).toLocaleString()}** engagement${Number(engagement.total) === 1 ? '' : 's'} · **${Number(engagement.responses).toLocaleString()}** written response${Number(engagement.responses) === 1 ? '' : 's'}${engagement.average_rating ? ` · **${engagement.average_rating}/5** average rating` : ''}`,
+      });
       if (work.media_url && (!work.media_type || work.media_type.startsWith('image/'))) embed.setImage(work.media_url);
       applyPlatformBrand(embed, {
         logo_url: work.platform_logo_url,
@@ -119,54 +132,58 @@ module.exports = {
       return interaction.reply({ embeds: [embed] });
     }
 
+    // Supabase checks can take longer than Discord's three-second response
+    // window, especially when Railway and Supabase are in different regions.
+    await interaction.deferReply({ ephemeral: true });
+
     const identityId = Number(interaction.options.getString('persona'));
     const identity = db.prepare(`
       SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
     `).get(interaction.guildId, identityId);
-    if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
+    if (!identity) return interaction.editReply('That persona was not found.');
     if (identity.owner_user_id !== interaction.user.id && !isAdmin(interaction)) {
-      return interaction.reply({ content: 'Only the persona owner or an admin can submit work for this person.', ephemeral: true });
+      return interaction.editReply('Only the persona owner or an admin can submit work for this person.');
     }
 
     const workType = interaction.options.getString('type');
     const platformCode = interaction.options.getString('platform').toUpperCase();
     const platform = db.prepare(`SELECT * FROM platforms WHERE code = ? AND active = 1`).get(platformCode);
-    if (!platform) return interaction.reply({ content: 'That platform was not found.', ephemeral: true });
+    if (!platform) return interaction.editReply('That platform was not found.');
     if (!allowedCategories[workType]?.includes(platform.category)) {
-      return interaction.reply({ content: `A **${workType}** cannot be released through **${platform.name}**. Choose a matching network or platform.`, ephemeral: true });
+      return interaction.editReply(`A **${workType}** cannot be released through **${platform.name}**. Choose a matching network or platform.`);
     }
     const destination = db.prepare(`SELECT channel_id FROM platform_channels WHERE guild_id = ? AND platform_code = ?`)
       .get(interaction.guildId, platformCode);
     if (!destination) {
-      return interaction.reply({ content: `The official **${platform.name}** channel has not been assigned yet. Ask a VERA admin to use \`/platform channel\`.`, ephemeral: true });
+      return interaction.editReply(`The official **${platform.name}** channel has not been assigned yet. Ask a VERA admin to use \`/platform channel\`.`);
     }
     const channel = await interaction.client.channels.fetch(destination.channel_id).catch(() => null);
     if (!channel?.isTextBased()) {
-      return interaction.reply({ content: `VERA cannot access the official **${platform.name}** channel. Ask an admin to configure it again.`, ephemeral: true });
+      return interaction.editReply(`VERA cannot access the official **${platform.name}** channel. Ask an admin to configure it again.`);
     }
     const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE guild_id = ? AND identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
       .get(interaction.guildId, identityId);
     if (!personaProxy) {
-      return interaction.reply({ content: 'Link this persona’s Tupperbox proxy with `/persona link-tupper` before publishing.', ephemeral: true });
+      return interaction.editReply('Link this persona’s Tupperbox proxy with `/persona link-tupper` before publishing.');
     }
 
     const rawSeriesId = interaction.options.getString('series');
     const seriesId = rawSeriesId ? Number(rawSeriesId) : null;
     if (workType === 'episode' && !seriesId) {
-      return interaction.reply({ content: 'Episodes must cite their parent series so VERA can build the show’s ratings history.', ephemeral: true });
+      return interaction.editReply('Episodes must cite their parent series so VERA can build the show’s ratings history.');
     }
     if (seriesId) {
       const series = db.prepare(`
         SELECT id, platform_code, identity_id FROM works
         WHERE guild_id = ? AND id = ? AND work_type = 'show' AND status = 'released'
       `).get(interaction.guildId, seriesId);
-      if (!series) return interaction.reply({ content: 'That parent series was not found.', ephemeral: true });
-      if (workType !== 'episode') return interaction.reply({ content: 'Only episode submissions can cite a parent series right now.', ephemeral: true });
+      if (!series) return interaction.editReply('That parent series was not found.');
+      if (workType !== 'episode') return interaction.editReply('Only episode submissions can cite a parent series right now.');
       if (series.identity_id !== identityId && !isAdmin(interaction)) {
-        return interaction.reply({ content: 'Only the registered series owner or a VERA admin can attach episodes to that show.', ephemeral: true });
+        return interaction.editReply('Only the registered series owner or a VERA admin can attach episodes to that show.');
       }
       if (series.platform_code !== platformCode) {
-        return interaction.reply({ content: 'The episode must use the same Lumi or Canvas network as its parent series.', ephemeral: true });
+        return interaction.editReply('The episode must use the same Lumi or Canvas network as its parent series.');
       }
     }
 
@@ -174,19 +191,19 @@ module.exports = {
     const labelId = rawLabelId ? Number(rawLabelId) : null;
     if (labelId) {
       const label = db.prepare(`SELECT id FROM labels WHERE guild_id = ? AND id = ? AND status = 'approved'`).get(interaction.guildId, labelId);
-      if (!label) return interaction.reply({ content: 'That label was not found or is not approved.', ephemeral: true });
+      if (!label) return interaction.editReply('That label was not found or is not approved.');
     }
 
     const title = interaction.options.getString('title').trim();
     const creditedName = interaction.options.getString('credited_name').trim();
     if (!isRegisteredIdentityName(db, identity, creditedName)) {
-      return interaction.reply({ content: 'That credited name is not registered to this persona. Add it first with `/persona alias-add`.', ephemeral: true });
+      return interaction.editReply('That credited name is not registered to this persona. Add it first with `/persona alias-add`.');
     }
     const releaseDate = interaction.options.getString('release_date');
     const promo = interaction.options.getString('promo') || 'standard';
     const artwork = interaction.options.getAttachment('artwork');
     if (artwork?.contentType && !artwork.contentType.startsWith('image/')) {
-      return interaction.reply({ content: 'Artwork must be an image file.', ephemeral: true });
+      return interaction.editReply('Artwork must be an image file.');
     }
     const mediaUrl = artwork?.url || null;
     const mediaType = artwork?.contentType || null;
@@ -252,13 +269,10 @@ module.exports = {
         payload: { embeds: [embed] },
       });
       const jumpUrl = `https://discord.com/channels/${interaction.guildId}/${channel.id}/${message.id}`;
-      return interaction.reply({ content: `Published **${title}** in ${channel} as **${creditedName}**. [View release](${jumpUrl})`, ephemeral: true });
+      return interaction.editReply(`Published **${title}** in ${channel} as **${creditedName}**. [View release](${jumpUrl})`);
     } catch (error) {
       console.error('Could not publish work through persona webhook:', error);
-      return interaction.reply({
-        content: `The metrics were saved as work #${workId}, but VERA could not post in ${channel}. Make sure VERA has **Manage Webhooks**, then try \`/work view id:${workId}\`.`,
-        ephemeral: true,
-      });
+      return interaction.editReply(`The metrics were saved as work #${workId}, but VERA could not post in ${channel}. Make sure VERA has **Manage Webhooks**, then try \`/work view id:${workId}\`.`);
     }
   },
 };

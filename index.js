@@ -11,6 +11,7 @@ const { captureTupperMessage, handleTupperButton } = require('./tupperbox');
 const { recordLinkedRpMessage } = require('./rpParser');
 const { startWeeklyPublisher } = require('./weeklyPublisher');
 const { startPromotionScheduler } = require('./promotionScheduler');
+const engageCommand = require('./cmd-engage');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -27,7 +28,16 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isModalSubmit()) {
+      if (await engageCommand.handleModal(interaction)) return;
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      if (await engageCommand.handleComponent(interaction)) return;
+    }
+
     if (interaction.isButton()) {
+      if (await engageCommand.handleComponent(interaction)) return;
       await handleTupperButton(interaction);
       return;
     }
@@ -45,7 +55,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   } catch (error) {
     console.error(`Error handling ${interaction.commandName || interaction.customId}:`, error);
     const response = { content: 'VERA hit an error while processing that. Check the console for details.', ephemeral: true };
-    if (interaction.replied || interaction.deferred) await interaction.followUp(response).catch(() => {});
+    if (interaction.deferred && !interaction.replied) await interaction.editReply(response).catch(() => {});
+    else if (interaction.replied) await interaction.followUp(response).catch(() => {});
     else await interaction.reply(response).catch(() => {});
   }
 });

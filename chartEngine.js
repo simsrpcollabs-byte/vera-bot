@@ -6,6 +6,7 @@ const chartDefinitions = {
   television: { name: 'VORTEX Television', emoji: '📺', limit: 50, decay: 0.89 },
   frame: { name: 'FRAME Top Videos', emoji: '▶️', limit: 50, decay: 0.84 },
   knetik: { name: 'KNETIK Trending', emoji: '⚡', limit: 50, decay: 0.72 },
+  echo: { name: 'The Grapevine', emoji: '🗣️', limit: 50, decay: 0.68 },
   exposure: { name: 'Xposure Most Watched', emoji: '📸', limit: 50, decay: 0.76 },
 };
 
@@ -25,6 +26,7 @@ function chartCodeFor(work, metrics) {
   if (work.platform_code === 'FRAME') return 'frame';
   if (work.platform_code === 'KNETIK') return 'knetik';
   if (work.platform_code === 'XPOSURE') return 'exposure';
+  if (work.platform_code === 'ECHO') return 'echo';
   return null;
 }
 
@@ -103,9 +105,10 @@ function buildChartWeek(guildId, weekKey = weekKeyFor()) {
     const previousMap = new Map(previousEntries.map((entry) => [`${entry.chart_code}:${entry.work_id}`, entry.rank]));
 
     const works = db.prepare(`
-      SELECT w.*, wm.metrics_json
+      SELECT w.*, wm.metrics_json, COALESCE(wb.buzz_score, 0) AS buzz_score
       FROM works w
       JOIN work_metrics wm ON wm.work_id = w.id
+      LEFT JOIN work_buzz wb ON wb.work_id = w.id
       WHERE w.guild_id = ? AND w.status = 'released'
     `).all(guildId);
     const grouped = {};
@@ -118,7 +121,8 @@ function buildChartWeek(guildId, weekKey = weekKeyFor()) {
       const baseScore = scoreFor(code, metrics);
       if (!baseScore) continue;
       const weeksOld = ageInWeeks(work.created_at);
-      const score = baseScore * (definition.decay ** weeksOld) * variation(work.id, weekKey);
+      const buzzMultiplier = 1 + Math.min(Number(work.buzz_score || 0) * 0.0125, 0.30);
+      const score = baseScore * buzzMultiplier * (definition.decay ** weeksOld) * variation(work.id, weekKey);
       if (!grouped[code]) grouped[code] = [];
       grouped[code].push({ work, score });
     }

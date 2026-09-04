@@ -8,7 +8,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Record-label registration and rosters
-- Lumi, Canvas, PULSE, FRAME, Xposure, and KNETIK seeded automatically
+- Lumi, Canvas, PULSE, FRAME, Xposure, KNETIK, and ECHO seeded automatically
 - Custom platform logos, brand colors, and assigned Discord channels
 - Proxy-style publishing under each persona’s credited stage or screen name
 - Instant work publishing with a chosen credited name and distributor
@@ -17,11 +17,13 @@ VERA registers fictional entertainment personas, professional names, record labe
 - Artist career summaries, platform audiences, and television episode histories
 - Automatic weekly VERA chart publication in a chosen Discord channel
 - Persona verification approved exclusively by the Discord server owner
-- Official Xposure and KNETIK channels with instant branded social posting
+- Official Xposure, KNETIK, and ECHO channels with instant branded social posting
+- Cross-platform `/engage` browsing for watching, streaming, liking, flashing, saving, sharing, echoing, rating, replying, commenting, and reviewing
 - Timed sponsored placements that expire automatically and preserve the original post
 - Admin approval queue for record labels
 - Automatic Tupperbox proxy linking during persona registration
 - Automatic VORTEX RP formatting recognition for linked Tuppers
+- Organic RP buzz that affects charts, platform audiences, career heat, and sentiment
 - Persistent Supabase Postgres database that survives Railway deployments
 - Image uploads for Xposure, KNETIK, cover artwork, and FRAME thumbnails
 - Automatic refresh of linked Tupper proxy avatars
@@ -46,12 +48,14 @@ VERA registers fictional entertainment personas, professional names, record labe
 - `/post view`
 - `/promo start`
 - `/promo status`
+- `/engage`
 - `/charts songs`
 - `/charts albums`
 - `/charts television`
 - `/charts frame`
 - `/charts exposure`
 - `/charts knetik`
+- `/charts echo` (The Grapevine)
 - `/charts artist`
 - `/charts show`
 - `/charts setup` (admin)
@@ -67,6 +71,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 - `/admin reject`
 - `/rp rules`
 - `/rp parse`
+- `/rp buzz`
 
 ## Requirements
 
@@ -114,6 +119,12 @@ VERA registers fictional entertainment personas, professional names, record labe
 In the Discord Developer Portal, open **Bot → Privileged Gateway Intents** and enable **Message Content Intent**. VERA needs it to distinguish bold audible dialogue from italic actions and internal thoughts in linked Tupperbox messages.
 
 VERA also needs **Manage Webhooks**, **View Channel**, **Send Messages**, **Embed Links**, **Read Message History**, and **Use Slash Commands** permissions. Manage Webhooks lets VERA publish under the persona’s credited stage or screen name and linked Tupper avatar.
+
+## ECHO and engagement
+
+Assign ECHO's official channel once with `/platform channel platform:ECHO`. Users publish a **Voice** through `/post submit platform:ECHO`; reposts are **Echoes**, followers are **Listeners**, and trending Voices appear on **The Grapevine**.
+
+Run `/engage persona:<name>` to browse any network or platform. VERA first asks for the platform, then the release or post, and finally shows the actions supported there. Choosing Comment, Reply, or Review opens a 300-character form and publishes the response through the persona's linked Tupper proxy. Ratings use a 1–5 form. A persona can use each engagement type once per work.
 
 ## GitHub browser upload
 
@@ -238,6 +249,22 @@ VERA automatically parses messages from linked Tuppers:
 - Unformatted text is narration or context.
 
 Use `/rp parse` to test a message before relying on the classification. Parsed messages are stored in Supabase so future activity and sentiment systems can use the correct context. Italic internal thoughts will never be treated as public speech.
+
+### How RP affects VERA
+
+When a linked Tupper mentions the exact title of a published work, VERA records organic buzz for that release. The impact is deliberately capped so active storytelling helps careers without rewarding spam.
+
+- A new outside persona discussing a release carries the most weight.
+- The artist or creator can self-promote, but self-promo receives reduced weight.
+- Each persona can create at most three counted mentions for the same release in a rolling 24-hour period.
+- Bold dialogue can contribute positive or negative public sentiment.
+- Italic actions and internal thoughts can establish that a work was played or viewed, but never become public opinion.
+- Negative discussion can raise attention while slightly lowering affinity.
+- Buzz can increase PULSE listeners, FRAME subscribers, Xposure Watchers, or KNETIK Followers.
+- Lumi and Canvas buzz adds projected viewers rather than a personal follower count.
+- Current-week chart scores can receive up to a 30% organic-buzz lift.
+
+Use `/rp buzz work_id:` to see counted mentions, unique personas, projected metric gains, and public sentiment for a release. `/work view` and `/post view` also display the release's current RP impact.
 
 ## Current scope
 

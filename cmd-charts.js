@@ -6,7 +6,7 @@ const { chartDefinitions, buildChartWeek, getChart, movement, weekKeyFor } = req
 const { verifiedName } = require('./display');
 const { audienceLabel } = require('./audience');
 
-const chartCodes = ['songs', 'albums', 'television', 'frame', 'knetik', 'exposure'];
+const chartCodes = ['songs', 'albums', 'television', 'frame', 'knetik', 'exposure', 'echo'];
 const dayChoices = [
   ['Sunday', 0], ['Monday', 1], ['Tuesday', 2], ['Wednesday', 3],
   ['Thursday', 4], ['Friday', 5], ['Saturday', 6],
@@ -21,7 +21,7 @@ function createChartEmbed(guildId, code, limit = 10) {
   const definition = chartDefinitions[code];
   const entries = getChart(guildId, code, limit);
   return new EmbedBuilder()
-    .setColor(code === 'exposure' ? 0xff5edb : code === 'knetik' ? 0xff7a67 : 0x2ddcff)
+    .setColor(code === 'exposure' ? 0xff5edb : code === 'knetik' ? 0xff7a67 : code === 'echo' ? 0x8a5cff : 0x2ddcff)
     .setTitle(`${definition.emoji} ${definition.name}`)
     .setDescription(entries.length ? entries.map(chartLine).join('\n\n') : 'No eligible releases have entered this chart yet.')
     .setFooter({ text: `VERA // ${weekKeyFor()} · updates automatically` })
@@ -62,7 +62,7 @@ function createWeeklyDigest(guildId) {
     .setTitle(`VERA // ${weekKeyFor()}`)
     .setDescription('The official weekly pulse of entertainment across The Vortex.')
     .addFields(...fields)
-    .setFooter({ text: 'PULSE · Lumi · Canvas · FRAME · Xposure · KNETIK' })
+    .setFooter({ text: 'PULSE · Lumi · Canvas · FRAME · Xposure · KNETIK · ECHO' })
     .setTimestamp();
 }
 

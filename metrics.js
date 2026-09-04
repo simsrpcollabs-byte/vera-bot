@@ -189,6 +189,30 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
     };
   }
 
+  if (platform.category === 'social-micro') {
+    const reach = whole(190_000 * impact);
+    const likes = whole(reach * between(random, 0.045, 0.13));
+    const replies = whole(reach * between(random, 0.002, 0.012));
+    const echoes = whole(reach * between(random, 0.006, 0.035));
+    const listeners = whole(reach * between(random, 0.003, 0.018));
+    return {
+      title: 'ECHO VOICE INSIGHTS',
+      description: `**${title}** is moving through the Soundboard.`,
+      accent: 0x8a5cff,
+      fields: [
+        field('Accounts reached', compact(reach)),
+        field('Likes', compact(likes)),
+        field('Replies', compact(replies)),
+        field('Echoes', compact(echoes)),
+        field('New Listeners', compact(listeners)),
+      ],
+      chart: { code: 'echo', name: 'The Grapevine', score: reach + (likes * 3) + (replies * 12) + (echoes * 16) },
+      raw: { reach, likes, replies, echoes, listeners },
+      socialGain: listeners,
+      audienceGain: listeners,
+    };
+  }
+
   const views = whole(780_000 * impact);
   const likes = whole(views * between(random, 0.085, 0.18));
   const shares = whole(views * between(random, 0.009, 0.035));
@@ -242,9 +266,17 @@ function applyPromotionBoost(originalMetrics, level, durationMinutes) {
     setField('Likes', compact(raw.likes));
     setField('Shares', compact(raw.shares));
     setField('New Followers', compact(raw.watchers));
+  } else if (metrics.chart?.code === 'echo') {
+    ['reach', 'likes', 'replies', 'echoes', 'listeners'].forEach(increase);
+    metrics.chart.score = raw.reach + (raw.likes * 3) + (raw.replies * 12) + (raw.echoes * 16);
+    setField('Accounts reached', compact(raw.reach));
+    setField('Likes', compact(raw.likes));
+    setField('Replies', compact(raw.replies));
+    setField('Echoes', compact(raw.echoes));
+    setField('New Listeners', compact(raw.listeners));
   }
   metrics.raw = raw;
-  metrics.socialGain = raw.watchers;
+  metrics.socialGain = raw.watchers ?? raw.listeners;
   metrics.promotion = { level, durationMinutes, multiplier };
   return { metrics, watcherDelta: Math.max(0, (Number(raw.watchers) || 0) - beforeWatchers) };
 }

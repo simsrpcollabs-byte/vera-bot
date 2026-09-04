@@ -89,6 +89,15 @@ CREATE TABLE IF NOT EXISTS social_posts (
   metrics_json TEXT NOT NULL, channel_id TEXT, message_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS content_engagements (
+  id BIGSERIAL PRIMARY KEY, guild_id TEXT NOT NULL,
+  work_id BIGINT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+  identity_id BIGINT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
+  engagement_type TEXT NOT NULL, response_text TEXT, rating INTEGER,
+  created_by TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(work_id, identity_id, engagement_type)
+);
+CREATE INDEX IF NOT EXISTS idx_content_engagements_work ON content_engagements(guild_id, work_id, created_at);
 CREATE TABLE IF NOT EXISTS promotions (
   id BIGSERIAL PRIMARY KEY, guild_id TEXT NOT NULL,
   social_post_id BIGINT NOT NULL REFERENCES social_posts(id) ON DELETE CASCADE,
@@ -122,6 +131,25 @@ CREATE TABLE IF NOT EXISTS rp_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_rp_messages_identity ON rp_messages(guild_id, identity_id, created_at);
+CREATE TABLE IF NOT EXISTS rp_buzz_events (
+  id BIGSERIAL PRIMARY KEY, guild_id TEXT NOT NULL, message_id TEXT NOT NULL,
+  speaker_identity_id BIGINT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
+  work_id BIGINT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+  sentiment SMALLINT NOT NULL DEFAULT 0, points DOUBLE PRECISION NOT NULL DEFAULT 0,
+  audible SMALLINT NOT NULL DEFAULT 0, metric_gain BIGINT NOT NULL DEFAULT 0,
+  audience_gain BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(message_id, work_id)
+);
+CREATE INDEX IF NOT EXISTS idx_rp_buzz_daily ON rp_buzz_events(guild_id, work_id, speaker_identity_id, created_at);
+CREATE TABLE IF NOT EXISTS work_buzz (
+  work_id BIGINT PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+  guild_id TEXT NOT NULL, mentions INTEGER NOT NULL DEFAULT 0,
+  positive_mentions INTEGER NOT NULL DEFAULT 0, negative_mentions INTEGER NOT NULL DEFAULT 0,
+  buzz_score DOUBLE PRECISION NOT NULL DEFAULT 0, metric_gain BIGINT NOT NULL DEFAULT 0,
+  audience_gain BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 ALTER TABLE works ADD COLUMN IF NOT EXISTS parent_work_id BIGINT REFERENCES works(id) ON DELETE SET NULL;
 ALTER TABLE works ADD COLUMN IF NOT EXISTS media_url TEXT;
@@ -138,6 +166,7 @@ INSERT INTO platforms (code,name,category,description,brand_color) VALUES
 ('PULSE','PULSE','music','Music streaming platform','2DDCFF'),
 ('FRAME','FRAME','video','Open video platform','17C3B2'),
 ('XPOSURE','Xposure','social-profile','Profile-based social platform','FF5EDB'),
-('KNETIK','KNETIK','social-short','Short-form social video platform','FF7A67')
+('KNETIK','KNETIK','social-short','Short-form social video platform','FF7A67'),
+('ECHO','ECHO','social-micro','Real-time public conversation platform','8A5CFF')
 ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category,
 description=EXCLUDED.description, brand_color=COALESCE(platforms.brand_color,EXCLUDED.brand_color), active=1;

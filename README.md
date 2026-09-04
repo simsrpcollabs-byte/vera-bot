@@ -1,6 +1,6 @@
 # VERA Bot
 
-**Current version: 0.3.0**
+**Current version: 0.4.2**
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
@@ -8,7 +8,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 The version shown here, in `package.json`, and in `/vera info` stays synchronized. Before packaging a small update, run `npm run version:patch`; use `npm run version:minor` for a feature release or `npm run version:major` for a major rebuild.
 
-## Included in Version 0.3.0
+## Included in Version 0.4.2
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Record-label registration and rosters
@@ -23,6 +23,8 @@ The version shown here, in `package.json`, and in `/vera info` stays synchronize
 - Persona verification approved exclusively by the Discord server owner
 - Official Xposure, KNETIK, and ECHO channels with instant branded social posting
 - Cross-platform `/engage` browsing for watching, streaming, liking, flashing, saving, sharing, echoing, rating, replying, commenting, and reviewing
+- CultureLine ECHO updates for every completed engagement, with positive, negative, and mixed audience reception
+- Post-watch and post-stream thumbs-up/thumbs-down reactions that separate buzz from approval
 - Timed sponsored placements that expire automatically and preserve the original post
 - Admin approval queue for record labels
 - Automatic Tupperbox proxy linking during persona registration
@@ -133,6 +135,10 @@ VERA also needs **Manage Webhooks**, **View Channel**, **Send Messages**, **Embe
 Assign ECHO's official channel once with `/platform channel platform:ECHO`. Users publish a **Voice** through `/post submit platform:ECHO`; reposts are **Echoes**, followers are **Listeners**, and trending Voices appear on **The Grapevine**.
 
 Run `/engage persona:<name>` to browse any network or platform. VERA first asks for the platform, then the release or post, and finally shows the actions supported there. Choosing Comment, Reply, or Review opens a 300-character form and publishes the response through the persona's linked Tupper proxy. Ratings use a 1–5 form. A persona can use each engagement type once per work.
+
+Watching or streaming now ends with an **I liked it 👍 / Not for me 👎** prompt. The activity creates buzz either way, while the reaction records whether reception is positive or negative. Every completed engagement creates a CultureLine culture-watch update in the official ECHO channel. CultureLine summarizes the growing audience pulse with positive, negative, or mixed language instead of exposing private player controls.
+
+CultureLine uses the ECHO channel configured through `/platform channel platform:ECHO`. Its official `cultureline.png` profile picture is bundled as a flat root file with VERA, so no separate Railway avatar variable is required. CultureLine publishes as **CultureLine ✓**, a verified VORTEX publication.
 
 ## GitHub browser upload
 

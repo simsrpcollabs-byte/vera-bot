@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS content_engagements (
   id BIGSERIAL PRIMARY KEY, guild_id TEXT NOT NULL,
   work_id BIGINT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
   identity_id BIGINT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
-  engagement_type TEXT NOT NULL, response_text TEXT, rating INTEGER,
+  engagement_type TEXT NOT NULL, response_text TEXT, rating INTEGER, sentiment SMALLINT,
   created_by TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(work_id, identity_id, engagement_type)
 );
@@ -159,6 +159,7 @@ ALTER TABLE platforms ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE platforms ADD COLUMN IF NOT EXISTS brand_color TEXT;
 ALTER TABLE platform_channels ADD COLUMN IF NOT EXISTS webhook_id TEXT;
 ALTER TABLE platform_channels ADD COLUMN IF NOT EXISTS webhook_token TEXT;
+ALTER TABLE content_engagements ADD COLUMN IF NOT EXISTS sentiment SMALLINT;
 
 INSERT INTO platforms (code,name,category,description,brand_color) VALUES
 ('LUMI','Lumi','television','Television network','8B63FF'),

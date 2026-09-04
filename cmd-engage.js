@@ -14,6 +14,7 @@ const { identityChoices } = require('./autocomplete');
 const { isAdmin } = require('./access');
 const { applyPlatformBrand } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
+const { publishCultureLine } = require('./cultureline');
 
 const ACTIONS = {
   LUMI: [['watch', 'Watch', '▶️'], ['rate', 'Rate', '⭐'], ['review', 'Review', '📝']],
@@ -28,6 +29,7 @@ const ACTIONS = {
 const SCORE = { watch: 8, stream: 8, like: 5, flash: 5, save: 7, share: 12, echo: 16, comment: 10, reply: 10, review: 12 };
 const TEXT_ACTIONS = new Set(['comment', 'reply', 'review']);
 const PAST_TENSE = { watch: 'watched', stream: 'streamed', like: 'liked', flash: 'flashed', save: 'saved', share: 'shared', echo: 'echoed' };
+const REACTION_ACTIONS = new Set(['watch', 'stream']);
 
 function parseId(customId) {
   const [root, step, identityId, workId, action] = customId.split(':');
@@ -70,6 +72,13 @@ function actionRows(identityId, work) {
     .setCustomId(`engage:act:${identityId}:${work.id}:${action}`)
     .setLabel(label).setEmoji(emoji).setStyle(action === 'echo' || action === 'share' ? ButtonStyle.Primary : ButtonStyle.Secondary));
   return [new ActionRowBuilder().addComponents(buttons)];
+}
+
+function reactionRow(identityId, workId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`engage:react:${identityId}:${workId}:up`).setLabel('I liked it').setEmoji('👍').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`engage:react:${identityId}:${workId}:down`).setLabel('Not for me').setEmoji('👎').setStyle(ButtonStyle.Danger),
+  );
 }
 
 function workEmbed(work, prompt = 'Choose how this persona engages.') {
@@ -236,12 +245,50 @@ module.exports = {
         return true;
       }
       try {
+        await interaction.deferUpdate();
         const { work } = recordEngagement(interaction, parsed.identityId, parsed.workId, parsed.action);
-        await interaction.update({ embeds: [workEmbed(work, `✅ **${identity.civilian_name}** ${PAST_TENSE[parsed.action] || 'engaged with'} this content. VERA updated its activity.`)], components: [] });
+        if (!REACTION_ACTIONS.has(parsed.action)) {
+          await publishCultureLine(interaction, { work, identity, action: parsed.action }).catch((error) => console.error('CultureLine publish error:', error));
+        }
+        const prompt = REACTION_ACTIONS.has(parsed.action)
+          ? `✅ **${identity.civilian_name}** ${PAST_TENSE[parsed.action]} this content. What did they think?`
+          : `✅ **${identity.civilian_name}** ${PAST_TENSE[parsed.action] || 'engaged with'} this content. VERA updated its activity.`;
+        await interaction.editReply({ embeds: [workEmbed(work, prompt)], components: REACTION_ACTIONS.has(parsed.action) ? [reactionRow(parsed.identityId, parsed.workId)] : [] });
       } catch (error) {
         const duplicate = ['23505', 'SQLITE_CONSTRAINT_UNIQUE'].includes(error.code);
-        await interaction.reply({ content: duplicate ? `This persona already used **${parsed.action}** on that content.` : error.message, ephemeral: true });
+        const response = { content: duplicate ? `This persona already used **${parsed.action}** on that content.` : error.message, embeds: [], components: [] };
+        if (interaction.deferred) await interaction.editReply(response); else await interaction.reply({ ...response, ephemeral: true });
       }
+      return true;
+    }
+
+    if (parsed.step === 'react') {
+      await interaction.deferUpdate();
+      const sentiment = parsed.action === 'up' ? 1 : -1;
+      const engagement = db.prepare(`
+        SELECT ce.id, ce.sentiment, w.*, p.name AS platform_name, p.logo_url, p.brand_color
+        FROM content_engagements ce
+        JOIN works w ON w.id = ce.work_id
+        JOIN platforms p ON p.code = w.platform_code
+        WHERE ce.guild_id = ? AND ce.work_id = ? AND ce.identity_id = ?
+          AND ce.engagement_type IN ('watch', 'stream')
+        ORDER BY ce.created_at DESC LIMIT 1
+      `).get(interaction.guildId, parsed.workId, parsed.identityId);
+      if (!engagement) {
+        await interaction.editReply({ content: 'VERA could not find the watch or stream activity for this reaction.', embeds: [], components: [] });
+        return true;
+      }
+      if (engagement.sentiment !== null && engagement.sentiment !== undefined) {
+        await interaction.editReply({ content: 'This persona already reacted to that content.', embeds: [], components: [] });
+        return true;
+      }
+      db.prepare(`UPDATE content_engagements SET sentiment = ? WHERE id = ?`).run(sentiment, engagement.id);
+      await publishCultureLine(interaction, { work: engagement, identity, action: 'reaction', sentiment })
+        .catch((error) => console.error('CultureLine publish error:', error));
+      await interaction.editReply({
+        embeds: [workEmbed(engagement, `${sentiment === 1 ? '👍' : '👎'} **${identity.civilian_name}** marked this ${sentiment === 1 ? 'as something they liked' : 'as not for them'}. CultureLine updated the audience pulse on ECHO.`)],
+        components: [],
+      });
       return true;
     }
     return false;
@@ -262,6 +309,7 @@ module.exports = {
       return true;
     }
     try {
+      await interaction.deferReply({ ephemeral: true });
       const { work } = recordEngagement(interaction, parsed.identityId, parsed.workId, parsed.action, parsed.action === 'rate' ? null : response, rating);
       let publicMessage = null; let publishWarning = '';
       if (!rating) {
@@ -271,11 +319,13 @@ module.exports = {
           publishWarning = `\n\nVERA saved the engagement, but could not post it publicly: ${publishError.message}`;
         }
       }
+      await publishCultureLine(interaction, { work, identity, action: parsed.action }).catch((error) => console.error('CultureLine publish error:', error));
       const jump = publicMessage ? ` [View it](https://discord.com/channels/${interaction.guildId}/${publicMessage.channelId}/${publicMessage.id})` : '';
-      await interaction.reply({ embeds: [workEmbed(work, `✅ **${identity.civilian_name}** submitted a ${parsed.action}${rating ? ` of **${rating}/5**` : ''}. VERA updated its activity.${jump}${publishWarning}`)], ephemeral: true });
+      await interaction.editReply({ embeds: [workEmbed(work, `✅ **${identity.civilian_name}** submitted a ${parsed.action}${rating ? ` of **${rating}/5**` : ''}. VERA updated its activity.${jump}${publishWarning}`)] });
     } catch (error) {
       const duplicate = ['23505', 'SQLITE_CONSTRAINT_UNIQUE'].includes(error.code);
-      await interaction.reply({ content: duplicate ? `This persona already submitted a **${parsed.action}** for that content.` : error.message, ephemeral: true });
+      if (interaction.deferred) await interaction.editReply({ content: duplicate ? `This persona already submitted a **${parsed.action}** for that content.` : error.message });
+      else await interaction.reply({ content: duplicate ? `This persona already submitted a **${parsed.action}** for that content.` : error.message, ephemeral: true });
     }
     return true;
   },

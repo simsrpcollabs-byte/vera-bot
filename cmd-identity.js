@@ -39,12 +39,24 @@ module.exports = {
       .setDescription('View a registered persona.')
       .addStringOption((opt) => opt.setName('persona').setDescription('Select a persona').setRequired(false).setAutocomplete(true)))
     .addSubcommand((sub) => sub
+      .setName('edit')
+      .setDescription('Edit one of your registered personas.')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select your persona').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('civilian_name').setDescription('Updated civilian name').setMaxLength(80))
+      .addStringOption((opt) => opt.setName('pronouns').setDescription('Updated pronouns').setMaxLength(40))
+      .addStringOption((opt) => opt.setName('bio').setDescription('Updated short bio').setMaxLength(500)))
+    .addSubcommand((sub) => sub
+      .setName('delete')
+      .setDescription('Delete an unused persona you registered.')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select your persona').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('confirmation').setDescription('Type DELETE to confirm').setRequired(true).setMaxLength(6)))
+    .addSubcommand((sub) => sub
       .setName('link-tupper')
       .setDescription('Reconnect or change a persona’s Tupperbox proxy.')
       .addStringOption((opt) => opt.setName('persona').setDescription('Select the persona').setRequired(true).setAutocomplete(true))),
 
   async autocomplete(interaction) {
-    await interaction.respond(identityChoices(interaction));
+    await interaction.respond(identityChoices(interaction, false, true));
   },
 
   async execute(interaction) {
@@ -106,6 +118,7 @@ module.exports = {
     const identityId = Number(rawId);
     const { identity, allowed } = ownsIdentity(db, interaction.guildId, identityId, interaction.user.id);
     if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
+    if (!allowed) return interaction.reply({ content: 'You can only manage personas you registered.', ephemeral: true });
 
     if (subcommand === 'profile') {
       const aliases = db.prepare(`
@@ -141,8 +154,40 @@ module.exports = {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    if (!allowed && !isAdmin(interaction)) {
-      return interaction.reply({ content: 'Only the persona owner or an admin can make that change.', ephemeral: true });
+    if (subcommand === 'edit') {
+      const civilianName = interaction.options.getString('civilian_name')?.trim();
+      const pronouns = interaction.options.getString('pronouns')?.trim();
+      const bio = interaction.options.getString('bio')?.trim();
+      if (civilianName === undefined && pronouns === undefined && bio === undefined) {
+        return interaction.reply({ content: 'Add at least one field to update: civilian name, pronouns, or bio.', ephemeral: true });
+      }
+      if (civilianName && civilianName.toLowerCase() !== String(identity.civilian_name).toLowerCase()) {
+        const duplicate = db.prepare(`
+          SELECT id FROM identities WHERE guild_id = ? AND owner_user_id = ?
+            AND LOWER(civilian_name) = LOWER(?) AND id <> ?
+        `).get(interaction.guildId, interaction.user.id, civilianName, identityId);
+        if (duplicate) return interaction.reply({ content: 'You already have a persona with that civilian name.', ephemeral: true });
+      }
+      db.prepare(`UPDATE identities SET civilian_name = ?, pronouns = ?, bio = ? WHERE id = ?`)
+        .run(civilianName ?? identity.civilian_name, pronouns ?? identity.pronouns, bio ?? identity.bio, identityId);
+      return interaction.reply({ content: `Updated **${civilianName || identity.civilian_name}**.`, ephemeral: true });
+    }
+
+    if (subcommand === 'delete') {
+      if (interaction.options.getString('confirmation') !== 'DELETE') {
+        return interaction.reply({ content: 'Deletion cancelled. Type **DELETE** exactly to confirm.', ephemeral: true });
+      }
+      const published = db.prepare(`SELECT COUNT(*) AS count FROM works WHERE guild_id = ? AND identity_id = ?`)
+        .get(interaction.guildId, identityId);
+      if (Number(published.count)) {
+        return interaction.reply({
+          content: `**${identity.civilian_name}** cannot be deleted because they have ${Number(published.count)} published work${Number(published.count) === 1 ? '' : 's'}. This protects VERA’s career history.`,
+          ephemeral: true,
+        });
+      }
+      db.prepare(`DELETE FROM identities WHERE guild_id = ? AND id = ? AND owner_user_id = ?`)
+        .run(interaction.guildId, identityId, interaction.user.id);
+      return interaction.reply({ content: `Deleted **${identity.civilian_name}** and their linked aliases and proxy data.`, ephemeral: true });
     }
 
     if (subcommand === 'alias-add') {

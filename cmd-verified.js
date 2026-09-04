@@ -38,7 +38,8 @@ module.exports = {
       .setDescription('View pending requests (server owner only).')),
 
   async autocomplete(interaction) {
-    await interaction.respond(identityChoices(interaction, true));
+    const ownerCommand = interaction.options.getSubcommand() === 'revoke';
+    await interaction.respond(identityChoices(interaction, true, !ownerCommand));
   },
 
   async execute(interaction) {

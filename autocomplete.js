@@ -7,17 +7,18 @@ function choices(rows, labelKey = 'name') {
   }));
 }
 
-function identityChoices(interaction, approvedOnly = false) {
+function identityChoices(interaction, approvedOnly = false, ownedOnly = false) {
   const focused = interaction.options.getFocused().toLowerCase();
   const statusSql = approvedOnly ? "AND status = 'approved'" : '';
+  const ownerSql = ownedOnly ? 'AND owner_user_id = ?' : '';
   const rows = db.prepare(`
     SELECT id, civilian_name AS name, verified
     FROM identities
-    WHERE guild_id = ? ${statusSql}
+    WHERE guild_id = ? ${statusSql} ${ownerSql}
       AND (LOWER(civilian_name) LIKE ? OR CAST(id AS TEXT) LIKE ?)
     ORDER BY civilian_name
     LIMIT 25
-  `).all(interaction.guildId, `%${focused}%`, `%${focused}%`);
+  `).all(interaction.guildId, ...(ownedOnly ? [interaction.user.id] : []), `%${focused}%`, `%${focused}%`);
   return choices(rows);
 }
 

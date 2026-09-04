@@ -35,7 +35,7 @@ module.exports = {
   async execute(interaction) {
     const postId = interaction.options.getInteger('post_id');
     const post = db.prepare(`
-      SELECT sp.*, i.civilian_name, i.verified, p.name AS platform_name, p.logo_url, p.brand_color FROM social_posts sp
+      SELECT sp.*, i.civilian_name, i.verified, i.owner_user_id, p.name AS platform_name, p.logo_url, p.brand_color FROM social_posts sp
       JOIN identities i ON i.id = sp.identity_id
       JOIN platforms p ON p.code = sp.platform_code
       WHERE sp.guild_id = ? AND sp.id = ?
@@ -53,8 +53,8 @@ module.exports = {
       return interaction.reply({ embeds: [new EmbedBuilder().setColor(0xffc857).setTitle(`Promotion history · Post #${postId}`).setDescription(description)], ephemeral: true });
     }
 
-    if (post.submitted_by !== interaction.user.id && !isAdmin(interaction)) {
-      return interaction.reply({ content: 'Only the post owner or a VERA admin can promote it.', ephemeral: true });
+    if (post.owner_user_id !== interaction.user.id) {
+      return interaction.reply({ content: 'You can only promote posts belonging to personas you registered.', ephemeral: true });
     }
     const active = db.prepare(`SELECT id FROM promotions WHERE social_post_id = ? AND status = 'active'`).get(postId);
     if (active) return interaction.reply({ content: `Promotion #${active.id} is already active for this post.`, ephemeral: true });

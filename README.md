@@ -1,10 +1,14 @@
 # VERA Bot
 
+**Current version: 0.3.0**
+
 **VERA — VORTEX Entertainment Registration & Analytics**
 
 VERA registers fictional entertainment personas, professional names, record labels, networks, platforms, and releases for The Vortex. Publishing work produces immediate opening ratings, streams, views, or social insights based on its platform.
 
-## Included in Version 0.1
+The version shown here, in `package.json`, and in `/vera info` stays synchronized. Before packaging a small update, run `npm run version:patch`; use `npm run version:minor` for a feature release or `npm run version:major` for a major rebuild.
+
+## Included in Version 0.3.0
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Record-label registration and rosters
@@ -38,6 +42,8 @@ VERA registers fictional entertainment personas, professional names, record labe
 - `/persona register`
 - `/persona alias-add`
 - `/persona profile`
+- `/persona edit`
+- `/persona delete`
 - `/persona link-tupper`
 - `/label register`
 - `/label view`
@@ -69,6 +75,8 @@ VERA registers fictional entertainment personas, professional names, record labe
 - `/admin queue`
 - `/admin approve`
 - `/admin reject`
+- `/admin persona-audience` (server owner)
+- `/admin persona-verification` (server owner)
 - `/rp rules`
 - `/rp parse`
 - `/rp buzz`

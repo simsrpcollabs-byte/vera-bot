@@ -1,13 +1,16 @@
 {
   "name": "vera-bot",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "description": "VERA — VORTEX Entertainment Registration & Analytics Discord Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "deploy": "node deploy-commands.js",
-    "check": "node --check index.js && node --check deploy-commands.js && node --check database.js && node --check database-worker.js && node --check audience.js && node --check rpBuzz.js && node --check metrics.js && node --check chartEngine.js && node --check cmd-charts.js && node --check cmd-verified.js && node --check cmd-post.js && node --check cmd-promo.js && node --check cmd-platform.js && node --check cmd-identity.js && node --check cmd-work.js && node --check cmd-rp.js && node --check cmd-engage.js && node --check tupperbox.js && node --check proxyPublisher.js && node --check weeklyPublisher.js && node --check promotionScheduler.js"
+    "version:patch": "node release-version.js patch",
+    "version:minor": "node release-version.js minor",
+    "version:major": "node release-version.js major",
+    "check": "node --check index.js && node --check deploy-commands.js && node --check release-version.js && node --check database.js && node --check database-worker.js && node --check audience.js && node --check rpBuzz.js && node --check metrics.js && node --check chartEngine.js && node --check cmd-charts.js && node --check cmd-verified.js && node --check cmd-post.js && node --check cmd-promo.js && node --check cmd-platform.js && node --check cmd-identity.js && node --check cmd-work.js && node --check cmd-rp.js && node --check cmd-engage.js && node --check tupperbox.js && node --check proxyPublisher.js && node --check weeklyPublisher.js && node --check promotionScheduler.js"
   },
   "engines": {
     "node": ">=20 <24"

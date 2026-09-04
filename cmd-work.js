@@ -56,7 +56,7 @@ module.exports = {
 
   async autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
-    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true));
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true, true));
     if (focused.name === 'label') return interaction.respond(labelChoices(interaction, true));
     if (focused.name === 'series') {
       const search = focused.value.toLowerCase();
@@ -141,8 +141,8 @@ module.exports = {
       SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
     `).get(interaction.guildId, identityId);
     if (!identity) return interaction.editReply('That persona was not found.');
-    if (identity.owner_user_id !== interaction.user.id && !isAdmin(interaction)) {
-      return interaction.editReply('Only the persona owner or an admin can submit work for this person.');
+    if (identity.owner_user_id !== interaction.user.id) {
+      return interaction.editReply('You can only submit work for personas you registered.');
     }
 
     const workType = interaction.options.getString('type');
@@ -179,7 +179,7 @@ module.exports = {
       `).get(interaction.guildId, seriesId);
       if (!series) return interaction.editReply('That parent series was not found.');
       if (workType !== 'episode') return interaction.editReply('Only episode submissions can cite a parent series right now.');
-      if (series.identity_id !== identityId && !isAdmin(interaction)) {
+      if (series.identity_id !== identityId) {
         return interaction.editReply('Only the registered series owner or a VERA admin can attach episodes to that show.');
       }
       if (series.platform_code !== platformCode) {

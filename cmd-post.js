@@ -38,7 +38,7 @@ module.exports = {
       .addIntegerOption((opt) => opt.setName('id').setDescription('Post ID').setRequired(true).setMinValue(1))),
 
   async autocomplete(interaction) {
-    await interaction.respond(identityChoices(interaction, true));
+    await interaction.respond(identityChoices(interaction, true, true));
   },
 
   async execute(interaction) {
@@ -65,8 +65,8 @@ module.exports = {
     const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
       .get(interaction.guildId, identityId);
     if (!identity) return interaction.editReply('That persona was not found.');
-    if (identity.owner_user_id !== interaction.user.id && !isAdmin(interaction)) {
-      return interaction.editReply('Only the persona owner or a VERA admin can publish for this account.');
+    if (identity.owner_user_id !== interaction.user.id) {
+      return interaction.editReply('You can only publish for personas you registered.');
     }
 
     const platformCode = interaction.options.getString('platform');

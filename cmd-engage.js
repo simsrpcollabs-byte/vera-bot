@@ -38,7 +38,7 @@ function ownsPersona(interaction, identityId) {
   const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
     .get(interaction.guildId, identityId);
   if (!identity) return null;
-  if (identity.owner_user_id !== interaction.user.id && !isAdmin(interaction)) return null;
+  if (identity.owner_user_id !== interaction.user.id) return null;
   return identity;
 }
 
@@ -179,7 +179,7 @@ module.exports = {
     .addStringOption((option) => option.setName('persona').setDescription('Persona engaging with the content').setRequired(true).setAutocomplete(true)),
 
   async autocomplete(interaction) {
-    await interaction.respond(identityChoices(interaction, true));
+    await interaction.respond(identityChoices(interaction, true, true));
   },
 
   async execute(interaction) {

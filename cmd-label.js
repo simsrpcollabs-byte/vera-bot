@@ -26,7 +26,7 @@ module.exports = {
 
   async autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
-    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true));
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true, true));
     return interaction.respond(labelChoices(interaction));
   },
 
@@ -94,6 +94,9 @@ module.exports = {
       SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
     `).get(interaction.guildId, identityId);
     if (!identity) return interaction.reply({ content: 'That artist persona was not found.', ephemeral: true });
+    if (identity.owner_user_id !== interaction.user.id) {
+      return interaction.reply({ content: 'You can only add personas you registered to a roster.', ephemeral: true });
+    }
 
     db.prepare(`
       INSERT INTO label_roster (label_id, identity_id, credited_name)

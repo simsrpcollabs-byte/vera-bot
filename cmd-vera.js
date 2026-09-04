@@ -1,4 +1,5 @@
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { version } = require('./package.json');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -8,7 +9,7 @@ module.exports = {
   async execute(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x6757ff)
-      .setTitle('VERA')
+      .setTitle(`VERA · v${version}`)
       .setDescription('VORTEX Entertainment Registration & Analytics')
       .addFields(
         { name: 'Television', value: 'Lumi • Canvas', inline: true },

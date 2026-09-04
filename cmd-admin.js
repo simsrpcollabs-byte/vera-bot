@@ -1,6 +1,8 @@
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const db = require('./database');
 const { isAdmin } = require('./access');
+const { identityChoices, platformChoices } = require('./autocomplete');
+const { audienceLabel } = require('./audience');
 
 const categories = [
   { name: 'Label', value: 'label' },
@@ -28,14 +30,66 @@ module.exports = {
       .setDescription('Reject a pending registration.')
       .addStringOption((opt) => opt.setName('category').setDescription('Registration type').setRequired(true).addChoices(...categories))
       .addIntegerOption((opt) => opt.setName('id').setDescription('Registration ID').setRequired(true).setMinValue(1))
-      .addStringOption((opt) => opt.setName('reason').setDescription('Reason for rejection').setRequired(true).setMaxLength(300))),
+      .addStringOption((opt) => opt.setName('reason').setDescription('Reason for rejection').setRequired(true).setMaxLength(300)))
+    .addSubcommand((sub) => sub
+      .setName('persona-audience')
+      .setDescription('Set any persona’s follower or listener count (server owner).')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select any persona').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('platform').setDescription('Select a platform').setRequired(true).setAutocomplete(true))
+      .addIntegerOption((opt) => opt.setName('count').setDescription('New audience count').setRequired(true).setMinValue(0).setMaxValue(2000000000)))
+    .addSubcommand((sub) => sub
+      .setName('persona-verification')
+      .setDescription('Set any persona’s verification status (server owner).')
+      .addStringOption((opt) => opt.setName('persona').setDescription('Select any persona').setRequired(true).setAutocomplete(true))
+      .addStringOption((opt) => opt.setName('status').setDescription('Verification status').setRequired(true).addChoices(
+        { name: 'Verified', value: 'verified' }, { name: 'Unverified', value: 'unverified' },
+      ))),
+
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true, false));
+    return interaction.respond(platformChoices(interaction));
+  },
 
   async execute(interaction) {
+    const subcommand = interaction.options.getSubcommand();
+    if (['persona-audience', 'persona-verification'].includes(subcommand)) {
+      if (interaction.guild?.ownerId !== interaction.user.id) {
+        return interaction.reply({ content: 'Only the Discord server owner can edit persona audiences or verification.', ephemeral: true });
+      }
+      const identityId = Number(interaction.options.getString('persona'));
+      const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
+        .get(interaction.guildId, identityId);
+      if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
+
+      if (subcommand === 'persona-audience') {
+        const platformCode = interaction.options.getString('platform').toUpperCase();
+        const platform = db.prepare(`SELECT * FROM platforms WHERE code = ? AND active = 1`).get(platformCode);
+        if (!platform) return interaction.reply({ content: 'That platform was not found.', ephemeral: true });
+        const count = interaction.options.getInteger('count');
+        db.prepare(`
+          INSERT INTO social_profiles (guild_id, identity_id, platform_code, followers, activity_score, updated_at)
+          VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+          ON CONFLICT(guild_id, identity_id, platform_code) DO UPDATE SET
+            followers = excluded.followers, updated_at = CURRENT_TIMESTAMP
+        `).run(interaction.guildId, identityId, platformCode, count);
+        return interaction.reply({
+          content: `Set **${identity.civilian_name}** to **${count.toLocaleString()} ${audienceLabel(platformCode)}** on **${platform.name}**.`,
+          ephemeral: true,
+        });
+      }
+
+      const verified = interaction.options.getString('status') === 'verified';
+      db.prepare(`
+        UPDATE identities SET verified = ?, verified_by = ?, verified_at = ? WHERE id = ?
+      `).run(verified ? 1 : 0, verified ? interaction.user.id : null, verified ? new Date().toISOString() : null, identityId);
+      return interaction.reply({ content: `**${identity.civilian_name}** is now **${verified ? 'verified' : 'unverified'}**.`, ephemeral: true });
+    }
+
     if (!isAdmin(interaction)) {
       return interaction.reply({ content: 'You need the configured VERA admin role or Manage Server permission.', ephemeral: true });
     }
 
-    const subcommand = interaction.options.getSubcommand();
     const category = interaction.options.getString('category');
     const config = tableMap[category];
 

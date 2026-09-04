@@ -1,6 +1,7 @@
 const db = require('./database');
 const { parseRpMarkup } = require('./rpMarkup');
 const { processRpBuzz } = require('./rpBuzz');
+const { maybePublishRpAttention } = require('./cultureline');
 
 async function recordLinkedRpMessage(message) {
   if (!message.guildId || !message.webhookId || !message.content) return null;
@@ -28,7 +29,13 @@ async function recordLinkedRpMessage(message) {
     JSON.stringify(parsed.actionsAndThoughts),
     JSON.stringify(parsed.narration),
   );
-  if (saved.changes) processRpBuzz({ message, speakerIdentityId: link.identity_id, parsed });
+  if (saved.changes) {
+    const affected = processRpBuzz({ message, speakerIdentityId: link.identity_id, parsed });
+    for (const work of affected) {
+      await maybePublishRpAttention({ client: message.client, guildId: message.guildId, workId: work.workId })
+        .catch((error) => console.error('CultureLine RP story error:', error));
+    }
+  }
   return parsed;
 }
 

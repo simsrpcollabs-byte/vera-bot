@@ -7,6 +7,7 @@ const { verifiedName, isRegisteredIdentityName, applyPlatformBrand } = require('
 const { publishAsPersona } = require('./proxyPublisher');
 const { addAudience, audienceGain } = require('./audience');
 const { formatBuzz, getWorkBuzz } = require('./rpBuzz');
+const { publishReleaseStory } = require('./cultureline');
 
 const workTypes = [
   ['Song', 'song'], ['Album', 'album'], ['EP', 'ep'],
@@ -268,6 +269,12 @@ module.exports = {
         creditedName,
         payload: { embeds: [embed] },
       });
+      await publishReleaseStory({
+        client: interaction.client,
+        guildId: interaction.guildId,
+        workId,
+        createdBy: interaction.user.id,
+      }).catch((error) => console.error('CultureLine release story error:', error));
       const jumpUrl = `https://discord.com/channels/${interaction.guildId}/${channel.id}/${message.id}`;
       return interaction.editReply(`Published **${title}** in ${channel} as **${creditedName}**. [View release](${jumpUrl})`);
     } catch (error) {

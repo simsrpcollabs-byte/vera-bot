@@ -11,5 +11,6 @@ const charts = require('./cmd-charts');
 const verified = require('./cmd-verified');
 const post = require('./cmd-post');
 const promo = require('./cmd-promo');
+const cultureline = require('./cmd-cultureline');
 
-module.exports = [ping, vera, platform, identity, label, work, post, promo, engage, charts, verified, admin, rp];
+module.exports = [ping, vera, platform, identity, label, work, post, promo, engage, cultureline, charts, verified, admin, rp];

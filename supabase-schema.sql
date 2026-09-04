@@ -98,6 +98,14 @@ CREATE TABLE IF NOT EXISTS content_engagements (
   UNIQUE(work_id, identity_id, engagement_type)
 );
 CREATE INDEX IF NOT EXISTS idx_content_engagements_work ON content_engagements(guild_id, work_id, created_at);
+CREATE TABLE IF NOT EXISTS cultureline_events (
+  id BIGSERIAL PRIMARY KEY, guild_id TEXT NOT NULL,
+  work_id BIGINT REFERENCES works(id) ON DELETE CASCADE,
+  event_key TEXT NOT NULL, event_type TEXT NOT NULL, created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(guild_id, event_key)
+);
+CREATE INDEX IF NOT EXISTS idx_cultureline_events_work ON cultureline_events(guild_id, work_id, created_at);
 CREATE TABLE IF NOT EXISTS promotions (
   id BIGSERIAL PRIMARY KEY, guild_id TEXT NOT NULL,
   social_post_id BIGINT NOT NULL REFERENCES social_posts(id) ON DELETE CASCADE,

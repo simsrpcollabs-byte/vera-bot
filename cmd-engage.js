@@ -15,6 +15,7 @@ const { isAdmin } = require('./access');
 const { applyPlatformBrand } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
 const { maybePublishTraction } = require('./cultureline');
+const { updateCollaboratorCareer } = require('./collaboration');
 
 const ACTIONS = {
   LUMI: [['watch', 'Watch', '▶️'], ['rate', 'Rate', '⭐'], ['review', 'Review', '📝']],
@@ -135,6 +136,12 @@ function recordEngagement(interaction, identityId, workId, action, responseText 
     }
     db.prepare(`UPDATE identities SET heat = LEAST(100, heat + ?), affinity = LEAST(100, GREATEST(0, affinity + ?)) WHERE id = ?`)
       .run(points > 0 ? 0.03 : 0, action === 'rate' ? (Number(rating) - 3) * 0.03 : 0.01, work.identity_id);
+    updateCollaboratorCareer(
+      db,
+      work.id,
+      points > 0 ? 0.03 : 0,
+      action === 'rate' ? (Number(rating) - 3) * 0.03 : 0.01,
+    );
   });
   save();
   return { work, points };

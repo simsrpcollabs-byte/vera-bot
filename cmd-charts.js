@@ -159,17 +159,24 @@ module.exports = {
           COUNT(DISTINCT CASE WHEN ce.rank = 1 THEN w.id END) AS number_ones,
           COUNT(DISTINCT CASE WHEN ce.rank <= 10 THEN w.id END) AS top_tens,
           MIN(ce.rank) AS best_rank
-        FROM works w LEFT JOIN chart_entries ce ON ce.work_id = w.id
-        WHERE w.identity_id = ? AND w.status = 'released'
-      `).get(identityId);
+        FROM works w
+        LEFT JOIN work_collaborators wc ON wc.work_id = w.id AND wc.active = 1
+        LEFT JOIN chart_entries ce ON ce.work_id = w.id
+        WHERE (w.identity_id = ? OR wc.identity_id = ?) AND w.status = 'released'
+      `).get(identityId, identityId);
       const aliases = db.prepare(`SELECT alias_name FROM identity_aliases WHERE identity_id = ? AND active = 1 ORDER BY id`).all(identityId);
       const social = db.prepare(`SELECT platform_code, SUM(followers) AS followers FROM social_profiles WHERE identity_id = ? GROUP BY platform_code ORDER BY platform_code`).all(identityId);
       const releases = db.prepare(`
-        SELECT w.title, w.credited_name, MIN(ce.rank) AS peak
-        FROM works w LEFT JOIN chart_entries ce ON ce.work_id = w.id
-        WHERE w.identity_id = ? AND w.status = 'released'
+        SELECT w.title,
+          COALESCE(MAX(CASE WHEN wc.identity_id = ? THEN wc.credited_name END), w.credited_name) AS credited_name,
+          MIN(ce.rank) AS peak,
+          MAX(CASE WHEN wc.identity_id = ? THEN REPLACE(wc.role, '_', ' ') END) AS collaboration_role
+        FROM works w
+        LEFT JOIN work_collaborators wc ON wc.work_id = w.id AND wc.active = 1
+        LEFT JOIN chart_entries ce ON ce.work_id = w.id
+        WHERE (w.identity_id = ? OR wc.identity_id = ?) AND w.status = 'released'
         GROUP BY w.id ORDER BY w.created_at DESC LIMIT 5
-      `).all(identityId);
+      `).all(identityId, identityId, identityId, identityId);
       const embed = new EmbedBuilder().setColor(0x6757ff).setTitle(verifiedName(identity.civilian_name, identity.verified))
         .setDescription(aliases.length ? `Also known as **${aliases.map((alias) => alias.alias_name).join(', ')}**` : 'VERA career profile')
         .addFields(
@@ -178,7 +185,7 @@ module.exports = {
           { name: '#1s', value: String(stats.number_ones), inline: true },
           { name: 'Career peak', value: stats.best_rank ? `#${stats.best_rank}` : 'Not charted', inline: true },
           { name: 'Platform audiences', value: social.length ? social.map((row) => `**${row.platform_code}:** ${Number(row.followers).toLocaleString()} ${audienceLabel(row.platform_code)}`).join('\n') : 'No tracked audience yet' },
-          { name: 'Recent work', value: releases.length ? releases.map((work) => `**${work.title}** — ${work.credited_name}${work.peak ? ` · Peak #${work.peak}` : ''}`).join('\n') : 'No published work yet' },
+          { name: 'Recent work and credits', value: releases.length ? releases.map((work) => `**${work.title}** — ${work.credited_name}${work.collaboration_role ? ` · ${work.collaboration_role}` : ''}${work.peak ? ` · Peak #${work.peak}` : ''}`).join('\n') : 'No published work or collaborator credits yet' },
         ).setFooter({ text: `Persona #${identity.id} · VERA career history` });
       return interaction.reply({ embeds: [embed] });
     }

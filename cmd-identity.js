@@ -4,6 +4,7 @@ const { identityChoices } = require('./autocomplete');
 const { isAdmin, ownsIdentity } = require('./access');
 const { verifiedName, verificationLabel } = require('./display');
 const { audienceLabel } = require('./audience');
+const { roleLabel } = require('./collaboration');
 
 const aliasTypes = [
   ['Stage name', 'stage'],
@@ -129,6 +130,13 @@ module.exports = {
         SELECT platform_code, SUM(followers) AS followers FROM social_profiles
         WHERE identity_id = ? GROUP BY platform_code ORDER BY platform_code
       `).all(identityId);
+      const collaborationCredits = db.prepare(`
+        SELECT w.id AS work_id, w.title, wc.role, wc.credited_name
+        FROM work_collaborators wc
+        JOIN works w ON w.id = wc.work_id
+        WHERE wc.identity_id = ? AND wc.active = 1 AND w.status = 'released'
+        ORDER BY wc.created_at DESC LIMIT 8
+      `).all(identityId);
       const embed = new EmbedBuilder()
         .setColor(0x6757ff)
         .setTitle(verifiedName(identity.civilian_name, identity.verified))
@@ -149,6 +157,12 @@ module.exports = {
             value: audiences.length
               ? audiences.map((row) => `**${row.platform_code}:** ${Number(row.followers).toLocaleString()} ${audienceLabel(row.platform_code)}`).join('\n')
               : 'No tracked audience yet',
+          },
+          {
+            name: 'Project credits',
+            value: collaborationCredits.length
+              ? collaborationCredits.map((credit) => `**${credit.title}** — ${credit.credited_name} · ${roleLabel(credit.role)}`).join('\n')
+              : 'No collaborator credits yet',
           },
         );
       return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -179,11 +193,14 @@ module.exports = {
       if (interaction.options.getString('confirmation') !== 'DELETE') {
         return interaction.reply({ content: 'Deletion cancelled. Type **DELETE** exactly to confirm.', ephemeral: true });
       }
-      const published = db.prepare(`SELECT COUNT(*) AS count FROM works WHERE identity_id = ?`)
-        .get(identityId);
+      const published = db.prepare(`
+        SELECT
+          (SELECT COUNT(*) FROM works WHERE identity_id = ?) +
+          (SELECT COUNT(*) FROM work_collaborators WHERE identity_id = ?) AS count
+      `).get(identityId, identityId);
       if (Number(published.count)) {
         return interaction.reply({
-          content: `**${identity.civilian_name}** cannot be deleted because they have ${Number(published.count)} published work${Number(published.count) === 1 ? '' : 's'}. This protects VERA’s career history.`,
+          content: `**${identity.civilian_name}** cannot be deleted because they have ${Number(published.count)} published work or project credit${Number(published.count) === 1 ? '' : 's'}. This protects VERA’s career history.`,
           ephemeral: true,
         });
       }

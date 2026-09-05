@@ -2,6 +2,7 @@ const db = require('./database');
 const { applyPromotionBoost } = require('./metrics');
 const { buildSocialPostEmbed } = require('./socialPosts');
 const { ensurePlatformWebhook } = require('./proxyPublisher');
+const { addCollaboratorAudience } = require('./collaboration');
 
 async function completePromotion(client, promotion) {
   const post = db.prepare(`
@@ -24,6 +25,7 @@ async function completePromotion(client, promotion) {
         UPDATE social_profiles SET followers = followers + ?, activity_score = activity_score + ?, updated_at = CURRENT_TIMESTAMP
         WHERE identity_id = ? AND platform_code = ?
       `).run(watcherDelta, metrics.chart?.score || 0, post.identity_id, post.platform_code);
+      addCollaboratorAudience(db, post.work_id, post.platform_code, watcherDelta, metrics.chart?.score || 0);
     }
     db.prepare(`
       UPDATE promotions SET status = 'completed', final_metrics_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?

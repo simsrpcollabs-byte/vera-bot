@@ -8,6 +8,13 @@ const { publishAsPersona } = require('./proxyPublisher');
 const { addAudience, audienceGain } = require('./audience');
 const { formatBuzz, getWorkBuzz } = require('./rpBuzz');
 const { publishReleaseStory } = require('./cultureline');
+const {
+  COLLABORATOR_ROLES,
+  roleLabel,
+  getCollaborators,
+  formatCollaborators,
+  creditOpeningMetrics,
+} = require('./collaboration');
 
 const workTypes = [
   ['Song', 'song'], ['Album', 'album'], ['EP', 'ep'],
@@ -53,11 +60,55 @@ module.exports = {
     .addSubcommand((sub) => sub
       .setName('view')
       .setDescription('View a submitted work.')
-      .addIntegerOption((opt) => opt.setName('id').setDescription('Work ID').setRequired(true).setMinValue(1))),
+      .addIntegerOption((opt) => opt.setName('id').setDescription('Work ID').setRequired(true).setMinValue(1)))
+    .addSubcommand((sub) => {
+      sub.setName('collaborator-add').setDescription('Credit another persona on work you submitted.')
+        .addStringOption((opt) => opt.setName('work').setDescription('Select your work').setRequired(true).setAutocomplete(true))
+        .addStringOption((opt) => opt.setName('persona').setDescription('Persona to credit').setRequired(true).setAutocomplete(true))
+        .addStringOption((opt) => {
+          opt.setName('role').setDescription('Their role on the project').setRequired(true);
+          for (const [name, value] of COLLABORATOR_ROLES) opt.addChoices({ name, value });
+          return opt;
+        })
+        .addStringOption((opt) => opt.setName('credited_name').setDescription('Their registered public or professional name').setRequired(true).setMaxLength(80));
+      return sub;
+    })
+    .addSubcommand((sub) => {
+      sub.setName('collaborator-remove').setDescription('Remove a collaborator credit from your work.')
+        .addStringOption((opt) => opt.setName('work').setDescription('Select your work').setRequired(true).setAutocomplete(true))
+        .addStringOption((opt) => opt.setName('persona').setDescription('Persona whose credit should be removed').setRequired(true).setAutocomplete(true))
+        .addStringOption((opt) => {
+          opt.setName('role').setDescription('Credit role to remove').setRequired(true);
+          for (const [name, value] of COLLABORATOR_ROLES) opt.addChoices({ name, value });
+          return opt;
+        });
+      return sub;
+    })
+    .addSubcommand((sub) => sub
+      .setName('collaborators')
+      .setDescription('View the complete credits for a work.')
+      .addStringOption((opt) => opt.setName('work').setDescription('Select a work').setRequired(true).setAutocomplete(true))),
 
   async autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
-    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true, true));
+    const subcommand = interaction.options.getSubcommand();
+    if (focused.name === 'persona') return interaction.respond(identityChoices(interaction, true, subcommand === 'submit'));
+    if (focused.name === 'work') {
+      const search = String(focused.value || '').toLowerCase();
+      const ownedSql = subcommand === 'collaborators' ? '' : 'AND submitted_by = ?';
+      const args = subcommand === 'collaborators'
+        ? [`%${search}%`, `%${search}%`, `%${search}%`]
+        : [interaction.user.id, `%${search}%`, `%${search}%`, `%${search}%`];
+      const rows = db.prepare(`
+        SELECT id, title, credited_name FROM works
+        WHERE status = 'released' ${ownedSql}
+          AND (LOWER(title) LIKE ? OR LOWER(credited_name) LIKE ? OR CAST(id AS TEXT) LIKE ?)
+        ORDER BY created_at DESC LIMIT 25
+      `).all(...args);
+      return interaction.respond(rows.map((row) => ({
+        name: `${row.title} — ${row.credited_name} (#${row.id})`.slice(0, 100), value: String(row.id),
+      })));
+    }
     if (focused.name === 'label') return interaction.respond(labelChoices(interaction, true));
     if (focused.name === 'series') {
       const search = focused.value.toLowerCase();
@@ -76,6 +127,65 @@ module.exports = {
 
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
+    if (['collaborator-add', 'collaborator-remove', 'collaborators'].includes(subcommand)) {
+      await interaction.deferReply({ ephemeral: subcommand !== 'collaborators' });
+      const workId = Number(interaction.options.getString('work'));
+      const work = db.prepare(`
+        SELECT w.*, i.civilian_name AS owner_name, i.verified AS owner_verified
+        FROM works w JOIN identities i ON i.id = w.identity_id
+        WHERE w.id = ? AND w.status = 'released'
+      `).get(workId);
+      if (!work) return interaction.editReply('That work was not found.');
+
+      if (subcommand === 'collaborators') {
+        const rows = getCollaborators(db, workId);
+        const embed = new EmbedBuilder()
+          .setColor(0x6757ff)
+          .setTitle(`Credits · ${work.title}`)
+          .setDescription(`**Primary:** ${verifiedName(work.credited_name, work.owner_verified)}`)
+          .addFields({ name: 'Collaborators', value: formatCollaborators(rows) })
+          .setFooter({ text: `Work #${work.id} · ${rows.length + 1} credited persona${rows.length ? 's' : ''}` });
+        if (work.media_url && (!work.media_type || work.media_type.startsWith('image/'))) embed.setThumbnail(work.media_url);
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      if (work.submitted_by !== interaction.user.id && !isAdmin(interaction)) {
+        return interaction.editReply('Only the original uploader or a VERA admin can manage this project’s collaborators.');
+      }
+      const identityId = Number(interaction.options.getString('persona'));
+      const identity = db.prepare(`SELECT * FROM identities WHERE id = ? AND status = 'approved'`).get(identityId);
+      if (!identity) return interaction.editReply('That collaborator persona was not found.');
+      if (identityId === Number(work.identity_id)) return interaction.editReply('That persona is already the primary creator credited on this work.');
+      const role = interaction.options.getString('role');
+
+      if (subcommand === 'collaborator-remove') {
+        const result = db.prepare(`
+          UPDATE work_collaborators SET active = 0, removed_at = CURRENT_TIMESTAMP
+          WHERE work_id = ? AND identity_id = ? AND role = ? AND active = 1
+        `).run(workId, identityId, role);
+        if (!result.changes) return interaction.editReply('That active collaborator credit was not found.');
+        return interaction.editReply(`Removed **${identity.civilian_name}** as **${roleLabel(role)}** from **${work.title}**. Their historical metrics remain preserved.`);
+      }
+
+      const creditedName = interaction.options.getString('credited_name').trim();
+      if (!isRegisteredIdentityName(db, identity, creditedName)) {
+        return interaction.editReply('That credited name is not registered to this persona. Their owner must add it with `/persona alias-add` first.');
+      }
+      const existing = db.prepare(`
+        SELECT id, active FROM work_collaborators WHERE work_id = ? AND identity_id = ? AND role = ?
+      `).get(workId, identityId, role);
+      if (existing?.active) return interaction.editReply('That persona already has this active credit on the project.');
+      db.prepare(`
+        INSERT INTO work_collaborators (work_id, identity_id, role, credited_name, added_by, active, removed_at)
+        VALUES (?, ?, ?, ?, ?, 1, NULL)
+        ON CONFLICT(work_id, identity_id, role) DO UPDATE SET
+          credited_name = EXCLUDED.credited_name, added_by = EXCLUDED.added_by,
+          active = 1, removed_at = NULL
+      `).run(workId, identityId, role, creditedName, interaction.user.id);
+      if (!existing) creditOpeningMetrics(db, work, identityId, role);
+      return interaction.editReply(`Added **${creditedName}** as **${roleLabel(role)}** on **${work.title}**. The credit now appears on both the work and persona’s VERA career history.`);
+    }
+
     if (subcommand === 'view') {
       const work = db.prepare(`
         SELECT w.*, i.civilian_name, i.verified, p.name AS platform_name,
@@ -125,6 +235,8 @@ module.exports = {
         name: '💫 VERA community activity',
         value: `**${Number(engagement.total).toLocaleString()}** engagement${Number(engagement.total) === 1 ? '' : 's'} · **${Number(engagement.responses).toLocaleString()}** written response${Number(engagement.responses) === 1 ? '' : 's'}${engagement.average_rating ? ` · **${engagement.average_rating}/5** average rating` : ''}`,
       });
+      const collaborators = getCollaborators(db, work.id);
+      if (collaborators.length) embed.addFields({ name: 'Project collaborators', value: formatCollaborators(collaborators) });
       if (work.media_url && (!work.media_type || work.media_type.startsWith('image/'))) embed.setImage(work.media_url);
       applyPlatformBrand(embed, {
         logo_url: work.platform_logo_url,

@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS works (
   media_url TEXT, media_type TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_works_identity ON works(guild_id, identity_id);
+CREATE TABLE IF NOT EXISTS work_collaborators (
+  id BIGSERIAL PRIMARY KEY,
+  work_id BIGINT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+  identity_id BIGINT NOT NULL REFERENCES identities(id) ON DELETE RESTRICT,
+  role TEXT NOT NULL, credited_name TEXT NOT NULL, added_by TEXT NOT NULL,
+  active SMALLINT NOT NULL DEFAULT 1, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  removed_at TIMESTAMPTZ, UNIQUE(work_id, identity_id, role)
+);
+CREATE INDEX IF NOT EXISTS idx_work_collaborators_identity ON work_collaborators(identity_id, active, created_at);
 CREATE TABLE IF NOT EXISTS work_metrics (
   id BIGSERIAL PRIMARY KEY, work_id BIGINT NOT NULL UNIQUE REFERENCES works(id) ON DELETE CASCADE,
   metrics_json TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP

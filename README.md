@@ -1,6 +1,6 @@
 # VERA Bot
 
-**Current version: 0.6.0**
+**Current version: 0.7.0**
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
@@ -8,7 +8,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 The version shown here, in `package.json`, and in `/vera info` stays synchronized. Before packaging a small update, run `npm run version:patch`; use `npm run version:minor` for a feature release or `npm run version:major` for a major rebuild.
 
-## Included in Version 0.6.0
+## Included in Version 0.7.0
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Server-wide persona directory and profiles viewable by every member
@@ -18,6 +18,8 @@ The version shown here, in `package.json`, and in `/vera info` stays synchronize
 - Custom platform logos, brand colors, and assigned Discord channels
 - Proxy-style publishing under each persona’s credited stage or screen name
 - Instant work publishing with a chosen credited name and distributor
+- Multi-persona project credits for featured artists, producers, writers, directors, cast members, guests, creators, editors, photographers, models, stylists, brand partners, and choreographers
+- Weighted career and audience impact for every active collaborator, with complete credits shown on work and persona profiles
 - Platform-specific opening metrics saved with every published work
 - Live rankings for songs, albums, television, FRAME, Xposure, and KNETIK
 - Artist career summaries, platform audiences, and television episode histories
@@ -54,6 +56,9 @@ The version shown here, in `package.json`, and in `/vera info` stays synchronize
 - `/label roster-add`
 - `/work submit`
 - `/work view`
+- `/work collaborator-add`
+- `/work collaborator-remove`
+- `/work collaborators`
 - `/post submit`
 - `/post view`
 - `/promo start`
@@ -162,7 +167,7 @@ Never upload a real `.env` file or Discord bot token.
 
 ## Supabase and Railway
 
-VERA now keeps its data in Supabase instead of Railway's temporary filesystem. Personas, aliases, Tupper links, labels, posts, metrics, followers, charts, and verification records remain available when Railway rebuilds or replaces the container.
+VERA now keeps its data in Supabase instead of Railway's temporary filesystem. Personas, aliases, Tupper links, labels, posts, collaborators, credits, metrics, followers, charts, and verification records remain available when Railway rebuilds or replaces the container.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Save the database password you choose during project creation.
@@ -210,6 +215,16 @@ VERA cannot send through Tupperbox's private webhook. Instead, it uses a VERA-ow
 - KNETIK: first-day views, likes, shares, completion rate, and new Followers
 
 Persona registration is self-service. Only record-label registration and persona verification require approval. Work itself does not enter an approval queue.
+
+## Project collaborators and credits
+
+After publishing a work, the original uploader can attach other registered personas with `/work collaborator-add`. Choose the work, collaborator persona, role, and the registered alias that should appear publicly. The collaborator does not need admin approval, but their credited name must already belong to their VERA profile.
+
+Use `/work collaborators` to view the primary creator and complete project credits. Use `/work collaborator-remove` to deactivate a mistaken credit. Removing a credit does not erase previously recorded career history or metrics. VERA admins may manage collaborator credits when correction is necessary.
+
+Collaborator roles include featured artist, producer, songwriter, actor/cast member, director, writer, executive producer, creator, guest/co-host, editor, photographer, model, stylist, brand partner, and choreographer. Each role carries a different contribution weight. Shared releases appear on collaborator profiles and `/charts artist`; future engagement, organic RP buzz, promotion gains, career heat, affinity, and audience changes are attributed to active collaborators at their role weight.
+
+VERA creates the `work_collaborators` table automatically during startup. Do not create it manually in Supabase. Existing personas, works, metrics, posts, and charts are left unchanged.
 
 ## Charts and weekly publication
 

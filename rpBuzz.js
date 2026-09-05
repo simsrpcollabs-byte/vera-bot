@@ -1,5 +1,6 @@
 const db = require('./database');
 const { addAudience } = require('./audience');
+const { addCollaboratorAudience, updateCollaboratorCareer } = require('./collaboration');
 
 const POSITIVE = ['love', 'loved', 'obsessed', 'amazing', 'good', 'great', 'beautiful', 'fire', 'hit', 'iconic', 'favorite', 'favourite', 'ate', 'slayed', 'slays', 'bop', 'watching', 'streaming'];
 const NEGATIVE = ['hate', 'hated', 'bad', 'awful', 'terrible', 'boring', 'flop', 'trash', 'weak', 'mess', 'mid', 'annoying', 'disappointed', 'disappointing'];
@@ -93,12 +94,14 @@ function processRpBuzz({ message, speakerIdentityId, parsed }) {
       points, metricGain, audienceGain);
 
     if (audienceGain > 0) addAudience(db, message.guildId, work.identity_id, work.platform_code, audienceGain, points);
+    if (audienceGain > 0) addCollaboratorAudience(db, work.id, work.platform_code, audienceGain, points);
     db.prepare(`
       UPDATE identities SET
         heat = LEAST(100, heat + ?),
         affinity = LEAST(100, GREATEST(0, affinity + ?))
       WHERE id = ?
     `).run(points * 0.08, sentiment * 0.04, work.identity_id);
+    updateCollaboratorCareer(db, work.id, points * 0.08, sentiment * 0.04);
     affected.push({ workId: work.id, title: work.title, points, metricGain, label: impact.label });
   }
   return affected;

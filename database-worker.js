@@ -16,7 +16,7 @@ const pool = new Pool({
 pool.on('error', (error) => {
   console.error('Supabase idle connection error:', error.message);
 });
-const serialTables = new Set(['identities','identity_aliases','labels','label_roster','works','work_metrics','chart_weeks','chart_entries','verification_requests','social_posts','content_engagements','cultureline_events','promotions','tupper_link_requests','tupper_links','rp_messages','rp_buzz_events']);
+const serialTables = new Set(['identities','identity_aliases','labels','label_roster','works','work_collaborators','work_metrics','chart_weeks','chart_entries','verification_requests','social_posts','content_engagements','cultureline_events','promotions','tupper_link_requests','tupper_links','rp_messages','rp_buzz_events']);
 let initialized = false;
 let transactionClient = null;
 

@@ -1,6 +1,6 @@
 # VERA Bot
 
-**Current version: 0.7.0**
+**Current version: 0.7.2**
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
@@ -8,7 +8,7 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 The version shown here, in `package.json`, and in `/vera info` stays synchronized. Before packaging a small update, run `npm run version:patch`; use `npm run version:minor` for a feature release or `npm run version:major` for a major rebuild.
 
-## Included in Version 0.7.0
+## Included in Version 0.7.2
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
 - Server-wide persona directory and profiles viewable by every member
@@ -126,6 +126,8 @@ The version shown here, in `package.json`, and in `/vera info` stays synchronize
    ```powershell
    npm run deploy
    ```
+
+   The deploy script removes VERA's older server-specific command copy from the configured server before publishing the current global commands. When VERA starts, she also clears old local command copies from every server she can currently access. This prevents every command from appearing twice across multiple servers.
 
 7. Start VERA:
 

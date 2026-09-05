@@ -6,6 +6,12 @@ const db = require('./database');
 async function deploy() {
   const rest = new REST({ version: '10' }).setToken(config.token);
   const body = commands.map((command) => command.data.toJSON());
+  console.log(`Clearing old server-specific VERA commands from server ${config.guildId}...`);
+  await rest.put(
+    Routes.applicationGuildCommands(config.clientId, config.guildId),
+    { body: [] },
+  );
+  console.log('Old server-specific commands cleared.');
   console.log(`Deploying ${body.length} VERA commands globally...`);
   await rest.put(
     Routes.applicationCommands(config.clientId),

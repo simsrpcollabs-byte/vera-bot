@@ -9,8 +9,8 @@ function isAdmin(interaction) {
 
 function ownsIdentity(db, guildId, identityId, userId) {
   const identity = db.prepare(`
-    SELECT * FROM identities WHERE guild_id = ? AND id = ?
-  `).get(guildId, identityId);
+    SELECT * FROM identities WHERE id = ?
+  `).get(identityId);
   return { identity, allowed: Boolean(identity && identity.owner_user_id === userId) };
 }
 

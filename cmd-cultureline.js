@@ -6,8 +6,8 @@ const { publishStory } = require('./cultureline');
 function ownedPersona(interaction, identityId) {
   return db.prepare(`
     SELECT * FROM identities
-    WHERE guild_id = ? AND id = ? AND owner_user_id = ? AND status = 'approved'
-  `).get(interaction.guildId, identityId, interaction.user.id);
+    WHERE id = ? AND owner_user_id = ? AND status = 'approved'
+  `).get(identityId, interaction.user.id);
 }
 
 function recordEvent(interaction, eventType, workId = null) {
@@ -65,8 +65,8 @@ module.exports = {
     }
 
     const opponentId = Number(interaction.options.getString('opponent'));
-    const opponent = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
-      .get(interaction.guildId, opponentId);
+    const opponent = db.prepare(`SELECT * FROM identities WHERE id = ? AND status = 'approved'`)
+      .get(opponentId);
     if (!opponent) return interaction.editReply('The other persona was not found.');
     if (opponent.id === persona.id) return interaction.editReply('Choose a different persona as the other side of the feud.');
     const details = interaction.options.getString('details').trim();

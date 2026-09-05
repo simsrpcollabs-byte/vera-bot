@@ -91,8 +91,8 @@ module.exports = {
 
     const identityId = Number(interaction.options.getString('persona'));
     const identity = db.prepare(`
-      SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
-    `).get(interaction.guildId, identityId);
+      SELECT * FROM identities WHERE id = ? AND status = 'approved'
+    `).get(identityId);
     if (!identity) return interaction.reply({ content: 'That artist persona was not found.', ephemeral: true });
     if (identity.owner_user_id !== interaction.user.id) {
       return interaction.reply({ content: 'You can only add personas you registered to a roster.', ephemeral: true });

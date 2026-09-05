@@ -63,10 +63,10 @@ module.exports = {
       const search = focused.value.toLowerCase();
       const rows = db.prepare(`
         SELECT id, title, credited_name FROM works
-        WHERE guild_id = ? AND status = 'released' AND work_type = 'show'
+        WHERE status = 'released' AND work_type = 'show'
           AND (LOWER(title) LIKE ? OR LOWER(credited_name) LIKE ? OR CAST(id AS TEXT) LIKE ?)
         ORDER BY title LIMIT 25
-      `).all(interaction.guildId, `%${search}%`, `%${search}%`, `%${search}%`);
+      `).all(`%${search}%`, `%${search}%`, `%${search}%`);
       return interaction.respond(rows.map((row) => ({
         name: `${row.title} — ${row.credited_name} (#${row.id})`.slice(0, 100), value: String(row.id),
       })));
@@ -87,8 +87,8 @@ module.exports = {
         JOIN platforms p ON p.code = w.platform_code
         LEFT JOIN labels l ON l.id = w.label_id
         LEFT JOIN work_metrics wm ON wm.work_id = w.id
-        WHERE w.guild_id = ? AND w.id = ?
-      `).get(interaction.guildId, interaction.options.getInteger('id'));
+        WHERE w.id = ?
+      `).get(interaction.options.getInteger('id'));
       if (!work) return interaction.reply({ content: 'That work was not found.', ephemeral: true });
       const embed = new EmbedBuilder()
         .setColor(0x28c8ff)
@@ -119,8 +119,8 @@ module.exports = {
         SELECT COUNT(*) AS total,
           COUNT(*) FILTER (WHERE engagement_type IN ('comment','reply','review')) AS responses,
           ROUND(AVG(rating)::numeric, 1) AS average_rating
-        FROM content_engagements WHERE guild_id = ? AND work_id = ?
-      `).get(interaction.guildId, work.id);
+        FROM content_engagements WHERE work_id = ?
+      `).get(work.id);
       if (Number(engagement.total)) embed.addFields({
         name: '💫 VERA community activity',
         value: `**${Number(engagement.total).toLocaleString()}** engagement${Number(engagement.total) === 1 ? '' : 's'} · **${Number(engagement.responses).toLocaleString()}** written response${Number(engagement.responses) === 1 ? '' : 's'}${engagement.average_rating ? ` · **${engagement.average_rating}/5** average rating` : ''}`,
@@ -139,8 +139,8 @@ module.exports = {
 
     const identityId = Number(interaction.options.getString('persona'));
     const identity = db.prepare(`
-      SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'
-    `).get(interaction.guildId, identityId);
+      SELECT * FROM identities WHERE id = ? AND status = 'approved'
+    `).get(identityId);
     if (!identity) return interaction.editReply('That persona was not found.');
     if (identity.owner_user_id !== interaction.user.id) {
       return interaction.editReply('You can only submit work for personas you registered.');
@@ -162,8 +162,8 @@ module.exports = {
     if (!channel?.isTextBased()) {
       return interaction.editReply(`VERA cannot access the official **${platform.name}** channel. Ask an admin to configure it again.`);
     }
-    const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE guild_id = ? AND identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
-      .get(interaction.guildId, identityId);
+    const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
+      .get(identityId);
     if (!personaProxy) {
       return interaction.editReply('Link this persona’s Tupperbox proxy with `/persona link-tupper` before publishing.');
     }
@@ -176,8 +176,8 @@ module.exports = {
     if (seriesId) {
       const series = db.prepare(`
         SELECT id, platform_code, identity_id FROM works
-        WHERE guild_id = ? AND id = ? AND work_type = 'show' AND status = 'released'
-      `).get(interaction.guildId, seriesId);
+        WHERE id = ? AND work_type = 'show' AND status = 'released'
+      `).get(seriesId);
       if (!series) return interaction.editReply('That parent series was not found.');
       if (workType !== 'episode') return interaction.editReply('Only episode submissions can cite a parent series right now.');
       if (series.identity_id !== identityId) {

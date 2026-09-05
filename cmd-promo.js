@@ -38,14 +38,14 @@ module.exports = {
       SELECT sp.*, i.civilian_name, i.verified, i.owner_user_id, p.name AS platform_name, p.logo_url, p.brand_color FROM social_posts sp
       JOIN identities i ON i.id = sp.identity_id
       JOIN platforms p ON p.code = sp.platform_code
-      WHERE sp.guild_id = ? AND sp.id = ?
-    `).get(interaction.guildId, postId);
+      WHERE sp.id = ?
+    `).get(postId);
     if (!post) return interaction.reply({ content: 'That social post was not found.', ephemeral: true });
 
     if (interaction.options.getSubcommand() === 'status') {
       const rows = db.prepare(`
-        SELECT * FROM promotions WHERE guild_id = ? AND social_post_id = ? ORDER BY id DESC LIMIT 10
-      `).all(interaction.guildId, postId);
+        SELECT * FROM promotions WHERE social_post_id = ? ORDER BY id DESC LIMIT 10
+      `).all(postId);
       const description = rows.length ? rows.map((row) => {
         const timing = row.status === 'active' ? `ends <t:${Math.floor(row.expires_at_ms / 1000)}:R>` : row.status;
         return `**#${row.id}** · ${row.promo_level} · ${durations.find((item) => item[1] === row.duration_minutes)?.[0] || `${row.duration_minutes} minutes`} · ${timing}`;

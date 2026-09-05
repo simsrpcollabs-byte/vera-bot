@@ -36,9 +36,9 @@ function processRpBuzz({ message, speakerIdentityId, parsed }) {
   const works = db.prepare(`
     SELECT id, identity_id, platform_code, title
     FROM works
-    WHERE guild_id = ? AND status = 'released'
+    WHERE status = 'released'
     ORDER BY created_at DESC LIMIT 200
-  `).all(message.guildId);
+  `).all();
   const fullText = message.content || '';
   const dialogue = parsed.dialogue.join(' ');
   const sentiment = sentimentFor(dialogue);

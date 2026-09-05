@@ -111,10 +111,10 @@ module.exports = {
     const search = focused.value.toLowerCase();
     const shows = db.prepare(`
       SELECT id, title, credited_name FROM works
-      WHERE guild_id = ? AND status = 'released' AND work_type = 'show'
+      WHERE status = 'released' AND work_type = 'show'
         AND (LOWER(title) LIKE ? OR LOWER(credited_name) LIKE ? OR CAST(id AS TEXT) LIKE ?)
       ORDER BY title LIMIT 25
-    `).all(interaction.guildId, `%${search}%`, `%${search}%`, `%${search}%`);
+    `).all(`%${search}%`, `%${search}%`, `%${search}%`);
     return interaction.respond(shows.map((show) => ({
       name: `${show.title} — ${show.credited_name} (#${show.id})`.slice(0, 100), value: String(show.id),
     })));
@@ -152,7 +152,7 @@ module.exports = {
     if (subcommand === 'artist') {
       buildChartWeek(interaction.guildId);
       const identityId = Number(interaction.options.getString('persona'));
-      const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`).get(interaction.guildId, identityId);
+      const identity = db.prepare(`SELECT * FROM identities WHERE id = ? AND status = 'approved'`).get(identityId);
       if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
       const stats = db.prepare(`
         SELECT COUNT(DISTINCT w.id) AS releases,
@@ -160,16 +160,16 @@ module.exports = {
           COUNT(DISTINCT CASE WHEN ce.rank <= 10 THEN w.id END) AS top_tens,
           MIN(ce.rank) AS best_rank
         FROM works w LEFT JOIN chart_entries ce ON ce.work_id = w.id
-        WHERE w.guild_id = ? AND w.identity_id = ? AND w.status = 'released'
-      `).get(interaction.guildId, identityId);
+        WHERE w.identity_id = ? AND w.status = 'released'
+      `).get(identityId);
       const aliases = db.prepare(`SELECT alias_name FROM identity_aliases WHERE identity_id = ? AND active = 1 ORDER BY id`).all(identityId);
-      const social = db.prepare(`SELECT platform_code, followers FROM social_profiles WHERE guild_id = ? AND identity_id = ? ORDER BY platform_code`).all(interaction.guildId, identityId);
+      const social = db.prepare(`SELECT platform_code, SUM(followers) AS followers FROM social_profiles WHERE identity_id = ? GROUP BY platform_code ORDER BY platform_code`).all(identityId);
       const releases = db.prepare(`
         SELECT w.title, w.credited_name, MIN(ce.rank) AS peak
         FROM works w LEFT JOIN chart_entries ce ON ce.work_id = w.id
-        WHERE w.guild_id = ? AND w.identity_id = ? AND w.status = 'released'
+        WHERE w.identity_id = ? AND w.status = 'released'
         GROUP BY w.id ORDER BY w.created_at DESC LIMIT 5
-      `).all(interaction.guildId, identityId);
+      `).all(identityId);
       const embed = new EmbedBuilder().setColor(0x6757ff).setTitle(verifiedName(identity.civilian_name, identity.verified))
         .setDescription(aliases.length ? `Also known as **${aliases.map((alias) => alias.alias_name).join(', ')}**` : 'VERA career profile')
         .addFields(
@@ -188,14 +188,14 @@ module.exports = {
       SELECT w.*, wm.metrics_json, i.verified FROM works w
       JOIN identities i ON i.id = w.identity_id
       LEFT JOIN work_metrics wm ON wm.work_id = w.id
-      WHERE w.guild_id = ? AND w.id = ? AND w.work_type = 'show' AND w.status = 'released'
-    `).get(interaction.guildId, seriesId);
+      WHERE w.id = ? AND w.work_type = 'show' AND w.status = 'released'
+    `).get(seriesId);
     if (!series) return interaction.reply({ content: 'That registered television show was not found.', ephemeral: true });
     const episodes = db.prepare(`
       SELECT w.*, wm.metrics_json FROM works w JOIN work_metrics wm ON wm.work_id = w.id
-      WHERE w.guild_id = ? AND w.parent_work_id = ? AND w.work_type = 'episode' AND w.status = 'released'
+      WHERE w.parent_work_id = ? AND w.work_type = 'episode' AND w.status = 'released'
       ORDER BY w.created_at, w.id
-    `).all(interaction.guildId, seriesId);
+    `).all(seriesId);
     const lines = episodes.map((episode, index) => {
       let metrics = {}; try { metrics = JSON.parse(episode.metrics_json); } catch {}
       return `**${index + 1}. ${episode.title}** · 7-day ${metricValue(metrics, '7-day viewers')} · 18–49 ${metricValue(metrics, '18–49 rating')} · Audience ${metricValue(metrics, 'Audience score')}`;

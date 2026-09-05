@@ -49,21 +49,21 @@ module.exports = {
                p.logo_url, p.brand_color
         FROM social_posts sp JOIN identities i ON i.id = sp.identity_id
         JOIN platforms p ON p.code = sp.platform_code
-        WHERE sp.guild_id = ? AND sp.id = ?
-      `).get(interaction.guildId, interaction.options.getInteger('id'));
+        WHERE sp.id = ?
+      `).get(interaction.options.getInteger('id'));
       if (!post) return interaction.reply({ content: 'That social post was not found.', ephemeral: true });
       const embed = buildSocialPostEmbed(post, post, JSON.parse(post.metrics_json), {}, post);
       embed.addFields({ name: '🎭 Organic RP impact', value: formatBuzz(getWorkBuzz(post.work_id), post.platform_code) });
-      const engagement = db.prepare(`SELECT COUNT(*) AS total FROM content_engagements WHERE guild_id = ? AND work_id = ?`)
-        .get(interaction.guildId, post.work_id);
+      const engagement = db.prepare(`SELECT COUNT(*) AS total FROM content_engagements WHERE work_id = ?`)
+        .get(post.work_id);
       if (Number(engagement.total)) embed.addFields({ name: '💫 Community activity', value: `**${Number(engagement.total).toLocaleString()}** engagement${Number(engagement.total) === 1 ? '' : 's'}` });
       return interaction.reply({ embeds: [embed] });
     }
 
     await interaction.deferReply({ ephemeral: true });
     const identityId = Number(interaction.options.getString('persona'));
-    const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
-      .get(interaction.guildId, identityId);
+    const identity = db.prepare(`SELECT * FROM identities WHERE id = ? AND status = 'approved'`)
+      .get(identityId);
     if (!identity) return interaction.editReply('That persona was not found.');
     if (identity.owner_user_id !== interaction.user.id) {
       return interaction.editReply('You can only publish for personas you registered.');
@@ -76,8 +76,8 @@ module.exports = {
     if (!destination) return interaction.editReply(`A VERA admin must configure the official ${platform.name} channel with \`/platform channel\` first.`);
     const channel = await interaction.client.channels.fetch(destination.channel_id).catch(() => null);
     if (!channel?.isTextBased()) return interaction.editReply('VERA cannot access the configured platform channel. Ask an admin to configure it again.');
-    const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE guild_id = ? AND identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
-      .get(interaction.guildId, identityId);
+    const personaProxy = db.prepare(`SELECT id FROM tupper_links WHERE identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
+      .get(identityId);
     if (!personaProxy) return interaction.editReply('Link this persona’s Tupperbox proxy with `/persona link-tupper` before publishing.');
 
     const attachment = interaction.options.getAttachment('media');

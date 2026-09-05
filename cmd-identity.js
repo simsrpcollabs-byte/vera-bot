@@ -56,7 +56,8 @@ module.exports = {
       .addStringOption((opt) => opt.setName('persona').setDescription('Select the persona').setRequired(true).setAutocomplete(true))),
 
   async autocomplete(interaction) {
-    await interaction.respond(identityChoices(interaction, false, true));
+    const subcommand = interaction.options.getSubcommand();
+    await interaction.respond(identityChoices(interaction, false, subcommand !== 'profile'));
   },
 
   async execute(interaction) {
@@ -66,8 +67,8 @@ module.exports = {
       const civilianName = interaction.options.getString('civilian_name').trim();
       const duplicate = db.prepare(`
         SELECT id FROM identities
-        WHERE guild_id = ? AND owner_user_id = ? AND LOWER(civilian_name) = LOWER(?)
-      `).get(interaction.guildId, interaction.user.id, civilianName);
+        WHERE owner_user_id = ? AND LOWER(civilian_name) = LOWER(?)
+      `).get(interaction.user.id, civilianName);
       if (duplicate) {
         return interaction.reply({ content: `You already registered that persona as #${duplicate.id}.`, ephemeral: true });
       }
@@ -107,18 +108,17 @@ module.exports = {
     if (subcommand === 'profile' && !rawId) {
       const rows = db.prepare(`
         SELECT id, civilian_name, status FROM identities
-        WHERE guild_id = ? AND owner_user_id = ? ORDER BY civilian_name
-      `).all(interaction.guildId, interaction.user.id);
+        ORDER BY civilian_name
+      `).all();
       const text = rows.length
         ? rows.map((row) => `#${row.id} — **${row.civilian_name}** (${row.status})`).join('\n')
-        : 'You have not registered any personas yet.';
+        : 'No personas have been registered in this server yet.';
       return interaction.reply({ content: text, ephemeral: true });
     }
 
     const identityId = Number(rawId);
     const { identity, allowed } = ownsIdentity(db, interaction.guildId, identityId, interaction.user.id);
     if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
-    if (!allowed) return interaction.reply({ content: 'You can only manage personas you registered.', ephemeral: true });
 
     if (subcommand === 'profile') {
       const aliases = db.prepare(`
@@ -126,9 +126,9 @@ module.exports = {
         WHERE identity_id = ? AND active = 1 ORDER BY alias_type, alias_name
       `).all(identityId);
       const audiences = db.prepare(`
-        SELECT platform_code, followers FROM social_profiles
-        WHERE guild_id = ? AND identity_id = ? ORDER BY platform_code
-      `).all(interaction.guildId, identityId);
+        SELECT platform_code, SUM(followers) AS followers FROM social_profiles
+        WHERE identity_id = ? GROUP BY platform_code ORDER BY platform_code
+      `).all(identityId);
       const embed = new EmbedBuilder()
         .setColor(0x6757ff)
         .setTitle(verifiedName(identity.civilian_name, identity.verified))
@@ -154,6 +154,8 @@ module.exports = {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
+    if (!allowed) return interaction.reply({ content: 'You can only manage personas you registered.', ephemeral: true });
+
     if (subcommand === 'edit') {
       const civilianName = interaction.options.getString('civilian_name')?.trim();
       const pronouns = interaction.options.getString('pronouns')?.trim();
@@ -163,9 +165,9 @@ module.exports = {
       }
       if (civilianName && civilianName.toLowerCase() !== String(identity.civilian_name).toLowerCase()) {
         const duplicate = db.prepare(`
-          SELECT id FROM identities WHERE guild_id = ? AND owner_user_id = ?
+          SELECT id FROM identities WHERE owner_user_id = ?
             AND LOWER(civilian_name) = LOWER(?) AND id <> ?
-        `).get(interaction.guildId, interaction.user.id, civilianName, identityId);
+        `).get(interaction.user.id, civilianName, identityId);
         if (duplicate) return interaction.reply({ content: 'You already have a persona with that civilian name.', ephemeral: true });
       }
       db.prepare(`UPDATE identities SET civilian_name = ?, pronouns = ?, bio = ? WHERE id = ?`)
@@ -177,16 +179,16 @@ module.exports = {
       if (interaction.options.getString('confirmation') !== 'DELETE') {
         return interaction.reply({ content: 'Deletion cancelled. Type **DELETE** exactly to confirm.', ephemeral: true });
       }
-      const published = db.prepare(`SELECT COUNT(*) AS count FROM works WHERE guild_id = ? AND identity_id = ?`)
-        .get(interaction.guildId, identityId);
+      const published = db.prepare(`SELECT COUNT(*) AS count FROM works WHERE identity_id = ?`)
+        .get(identityId);
       if (Number(published.count)) {
         return interaction.reply({
           content: `**${identity.civilian_name}** cannot be deleted because they have ${Number(published.count)} published work${Number(published.count) === 1 ? '' : 's'}. This protects VERA’s career history.`,
           ephemeral: true,
         });
       }
-      db.prepare(`DELETE FROM identities WHERE guild_id = ? AND id = ? AND owner_user_id = ?`)
-        .run(interaction.guildId, identityId, interaction.user.id);
+      db.prepare(`DELETE FROM identities WHERE id = ? AND owner_user_id = ?`)
+        .run(identityId, interaction.user.id);
       return interaction.reply({ content: `Deleted **${identity.civilian_name}** and their linked aliases and proxy data.`, ephemeral: true });
     }
 

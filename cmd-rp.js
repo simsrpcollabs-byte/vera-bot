@@ -34,8 +34,8 @@ module.exports = {
       const workId = interaction.options.getInteger('work_id');
       const work = db.prepare(`
         SELECT id, guild_id, title, credited_name, platform_code
-        FROM works WHERE guild_id = ? AND id = ? AND status = 'released'
-      `).get(interaction.guildId, workId);
+        FROM works WHERE id = ? AND status = 'released'
+      `).get(workId);
       if (!work) return interaction.reply({ content: 'That published work was not found.', ephemeral: true });
       return interaction.reply({
         embeds: [new EmbedBuilder()

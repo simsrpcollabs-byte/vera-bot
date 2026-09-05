@@ -1,6 +1,6 @@
 # VERA Bot
 
-**Current version: 0.5.0**
+**Current version: 0.6.0**
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
@@ -8,9 +8,11 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 The version shown here, in `package.json`, and in `/vera info` stays synchronized. Before packaging a small update, run `npm run version:patch`; use `npm run version:minor` for a feature release or `npm run version:major` for a major rebuild.
 
-## Included in Version 0.5.0
+## Included in Version 0.6.0
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
+- Server-wide persona directory and profiles viewable by every member
+- VORTEX-wide personas that retain their owner, aliases, verification, proxy, audience, work, and metrics across every VERA server
 - Record-label registration and rosters
 - Lumi, Canvas, PULSE, FRAME, Xposure, KNETIK, and ECHO seeded automatically
 - Custom platform logos, brand colors, and assigned Discord channels

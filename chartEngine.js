@@ -109,8 +109,8 @@ function buildChartWeek(guildId, weekKey = weekKeyFor()) {
       FROM works w
       JOIN work_metrics wm ON wm.work_id = w.id
       LEFT JOIN work_buzz wb ON wb.work_id = w.id
-      WHERE w.guild_id = ? AND w.status = 'released'
-    `).all(guildId);
+      WHERE w.status = 'released'
+    `).all();
     const grouped = {};
     for (const work of works) {
       let metrics;

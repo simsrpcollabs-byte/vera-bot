@@ -31,17 +31,17 @@ async function ensurePlatformWebhook(channel, platformCode) {
   return webhook;
 }
 
-function linkedPersona(identityId, guildId) {
+function linkedPersona(identityId) {
   return db.prepare(`
     SELECT tupper_name, tupper_avatar_url
     FROM tupper_links
-    WHERE guild_id = ? AND identity_id = ? AND active = 1
+    WHERE identity_id = ? AND active = 1
     ORDER BY id DESC LIMIT 1
-  `).get(guildId, identityId);
+  `).get(identityId);
 }
 
 async function publishAsPersona({ channel, platformCode, identityId, creditedName, payload }) {
-  const proxy = linkedPersona(identityId, channel.guildId);
+  const proxy = linkedPersona(identityId);
   if (!proxy) {
     const error = new Error('This persona must link a Tupperbox proxy before publishing.');
     error.code = 'PERSONA_PROXY_MISSING';

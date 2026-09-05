@@ -58,8 +58,8 @@ module.exports = {
         return interaction.reply({ content: 'Only the Discord server owner can edit persona audiences or verification.', ephemeral: true });
       }
       const identityId = Number(interaction.options.getString('persona'));
-      const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
-        .get(interaction.guildId, identityId);
+      const identity = db.prepare(`SELECT * FROM identities WHERE id = ? AND status = 'approved'`)
+        .get(identityId);
       if (!identity) return interaction.reply({ content: 'That persona was not found.', ephemeral: true });
 
       if (subcommand === 'persona-audience') {
@@ -72,7 +72,7 @@ module.exports = {
           VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
           ON CONFLICT(guild_id, identity_id, platform_code) DO UPDATE SET
             followers = excluded.followers, updated_at = CURRENT_TIMESTAMP
-        `).run(interaction.guildId, identityId, platformCode, count);
+        `).run(identity.guild_id, identityId, platformCode, count);
         return interaction.reply({
           content: `Set **${identity.civilian_name}** to **${count.toLocaleString()} ${audienceLabel(platformCode)}** on **${platform.name}**.`,
           ephemeral: true,

@@ -22,8 +22,8 @@ async function completePromotion(client, promotion) {
     if (watcherDelta) {
       db.prepare(`
         UPDATE social_profiles SET followers = followers + ?, activity_score = activity_score + ?, updated_at = CURRENT_TIMESTAMP
-        WHERE guild_id = ? AND identity_id = ? AND platform_code = ?
-      `).run(watcherDelta, metrics.chart?.score || 0, post.guild_id, post.identity_id, post.platform_code);
+        WHERE identity_id = ? AND platform_code = ?
+      `).run(watcherDelta, metrics.chart?.score || 0, post.identity_id, post.platform_code);
     }
     db.prepare(`
       UPDATE promotions SET status = 'completed', final_metrics_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?

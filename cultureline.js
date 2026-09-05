@@ -55,8 +55,8 @@ function workDetails(guildId, workId) {
     SELECT w.*, p.name AS platform_name, i.civilian_name, i.verified
     FROM works w JOIN platforms p ON p.code = w.platform_code
     JOIN identities i ON i.id = w.identity_id
-    WHERE w.guild_id = ? AND w.id = ? AND w.status = 'released'
-  `).get(guildId, workId);
+    WHERE w.id = ? AND w.status = 'released'
+  `).get(workId);
 }
 
 async function publishReleaseStory({ client, guildId, workId, createdBy }) {
@@ -84,8 +84,8 @@ async function maybePublishTraction({ client, guildId, workId }) {
     SELECT COUNT(*) AS activity, COUNT(DISTINCT identity_id) AS personas,
       SUM(CASE WHEN sentiment = 1 THEN 1 ELSE 0 END) AS positive,
       SUM(CASE WHEN sentiment = -1 THEN 1 ELSE 0 END) AS negative
-    FROM content_engagements WHERE guild_id = ? AND work_id = ?
-  `).get(guildId, workId);
+    FROM content_engagements WHERE work_id = ?
+  `).get(workId);
   const activity = Number(totals.activity || 0);
   const personas = Number(totals.personas || 0);
   const positive = Number(totals.positive || 0);
@@ -135,7 +135,7 @@ async function maybePublishTraction({ client, guildId, workId }) {
 async function maybePublishRpAttention({ client, guildId, workId }) {
   const work = workDetails(guildId, workId);
   if (!work) return null;
-  const buzz = db.prepare(`SELECT * FROM work_buzz WHERE guild_id = ? AND work_id = ?`).get(guildId, workId);
+  const buzz = db.prepare(`SELECT * FROM work_buzz WHERE work_id = ?`).get(workId);
   if (!buzz) return null;
   const negative = Number(buzz.negative_mentions || 0);
   const positive = Number(buzz.positive_mentions || 0);

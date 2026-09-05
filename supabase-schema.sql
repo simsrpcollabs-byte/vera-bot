@@ -13,8 +13,10 @@ CREATE TABLE IF NOT EXISTS identities (
   verified_by TEXT, verified_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'approved',
   reviewed_by TEXT, reviewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_identities_owner ON identities(guild_id, owner_user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_identity_owner_name ON identities(guild_id, owner_user_id, civilian_name);
+DROP INDEX IF EXISTS idx_identities_owner;
+CREATE INDEX IF NOT EXISTS idx_identities_owner ON identities(owner_user_id);
+DROP INDEX IF EXISTS idx_identity_owner_name;
+CREATE INDEX IF NOT EXISTS idx_identity_owner_name ON identities(owner_user_id, civilian_name);
 CREATE TABLE IF NOT EXISTS identity_aliases (
   id BIGSERIAL PRIMARY KEY, identity_id BIGINT NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
   alias_type TEXT NOT NULL, alias_name CITEXT NOT NULL, industry TEXT, active SMALLINT NOT NULL DEFAULT 1,

@@ -17,6 +17,8 @@ function audienceGain(metrics = {}) {
 function addAudience(db, guildId, identityId, platformCode, gain, score = 0) {
   const amount = Math.max(0, Math.round(Number(gain || 0)));
   if (!amount) return;
+  const persona = db.prepare(`SELECT guild_id FROM identities WHERE id = ?`).get(identityId);
+  if (!persona) return;
   db.prepare(`
     INSERT INTO social_profiles (guild_id, identity_id, platform_code, followers, activity_score, updated_at)
     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -24,7 +26,7 @@ function addAudience(db, guildId, identityId, platformCode, gain, score = 0) {
       followers = social_profiles.followers + EXCLUDED.followers,
       activity_score = social_profiles.activity_score + EXCLUDED.activity_score,
       updated_at = CURRENT_TIMESTAMP
-  `).run(guildId, identityId, platformCode, amount, Number(score || 0));
+  `).run(persona.guild_id, identityId, platformCode, amount, Number(score || 0));
 }
 
 module.exports = { addAudience, audienceGain, audienceLabel };

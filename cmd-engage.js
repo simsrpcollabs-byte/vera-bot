@@ -37,8 +37,8 @@ function parseId(customId) {
 }
 
 function ownsPersona(interaction, identityId) {
-  const identity = db.prepare(`SELECT * FROM identities WHERE guild_id = ? AND id = ? AND status = 'approved'`)
-    .get(interaction.guildId, identityId);
+  const identity = db.prepare(`SELECT * FROM identities WHERE id = ? AND status = 'approved'`)
+    .get(identityId);
   if (!identity) return null;
   if (identity.owner_user_id !== interaction.user.id) return null;
   return identity;
@@ -109,8 +109,8 @@ function recordEngagement(interaction, identityId, workId, action, responseText 
   const work = db.prepare(`
     SELECT w.*, p.name AS platform_name, p.logo_url, p.brand_color
     FROM works w JOIN platforms p ON p.code = w.platform_code
-    WHERE w.guild_id = ? AND w.id = ? AND w.status = 'released'
-  `).get(interaction.guildId, workId);
+    WHERE w.id = ? AND w.status = 'released'
+  `).get(workId);
   if (!work) throw new Error('That content is no longer available.');
   if (!(ACTIONS[work.platform_code] || []).some(([key]) => key === action)) throw new Error('That engagement is not available here.');
 
@@ -161,8 +161,8 @@ async function publishWrittenResponse(interaction, identityId, work, action, res
   if (!destination) throw new Error(`The official ${work.platform_name} channel is not configured.`);
   const channel = await interaction.client.channels.fetch(destination.channel_id).catch(() => null);
   if (!channel?.isTextBased()) throw new Error(`VERA cannot access the official ${work.platform_name} channel.`);
-  const link = db.prepare(`SELECT id, tupper_name FROM tupper_links WHERE guild_id = ? AND identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
-    .get(interaction.guildId, identityId);
+  const link = db.prepare(`SELECT id, tupper_name FROM tupper_links WHERE identity_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`)
+    .get(identityId);
   if (!link) throw new Error('Link this persona’s Tupperbox proxy before leaving a public comment or review.');
   const identity = db.prepare(`SELECT * FROM identities WHERE id = ?`).get(identityId);
   const label = action === 'review' ? 'Review' : action === 'reply' ? 'Reply' : 'Comment';
@@ -214,9 +214,9 @@ module.exports = {
       const platformCode = interaction.values[0];
       const works = db.prepare(`
         SELECT id, title, credited_name, work_type FROM works
-        WHERE guild_id = ? AND platform_code = ? AND status = 'released'
+        WHERE platform_code = ? AND status = 'released'
         ORDER BY created_at DESC LIMIT 25
-      `).all(interaction.guildId, platformCode);
+      `).all(platformCode);
       if (!works.length) {
         await interaction.update({ content: `There is no released ${platformCode} content to engage with yet.`, embeds: [], components: [platformMenu(parsed.identityId)] });
         return true;
@@ -230,7 +230,7 @@ module.exports = {
 
     if (parsed.step === 'content') {
       const workId = Number(interaction.values[0]);
-      const work = db.prepare(`SELECT w.*, p.name AS platform_name, p.logo_url, p.brand_color FROM works w JOIN platforms p ON p.code = w.platform_code WHERE w.guild_id = ? AND w.id = ?`).get(interaction.guildId, workId);
+      const work = db.prepare(`SELECT w.*, p.name AS platform_name, p.logo_url, p.brand_color FROM works w JOIN platforms p ON p.code = w.platform_code WHERE w.id = ?`).get(workId);
       if (!work) {
         await interaction.update({ content: 'That content is no longer available.', embeds: [], components: [] });
         return true;
@@ -271,10 +271,10 @@ module.exports = {
         FROM content_engagements ce
         JOIN works w ON w.id = ce.work_id
         JOIN platforms p ON p.code = w.platform_code
-        WHERE ce.guild_id = ? AND ce.work_id = ? AND ce.identity_id = ?
+        WHERE ce.work_id = ? AND ce.identity_id = ?
           AND ce.engagement_type IN ('watch', 'stream')
         ORDER BY ce.created_at DESC LIMIT 1
-      `).get(interaction.guildId, parsed.workId, parsed.identityId);
+      `).get(parsed.workId, parsed.identityId);
       if (!engagement) {
         await interaction.editReply({ content: 'VERA could not find the watch or stream activity for this reaction.', embeds: [], components: [] });
         return true;

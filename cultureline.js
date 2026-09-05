@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
 const db = require('./database');
+const { applyGovernmentImpact } = require('./government');
 
 const CULTURELINE_WEBHOOK_NAME = 'CultureLine • VERA Newsroom';
 const CULTURELINE_AVATAR = path.join(__dirname, 'cultureline.png');
@@ -33,26 +34,28 @@ async function echoChannel(client, guildId) {
   return channel?.isTextBased() ? channel : null;
 }
 
-async function publishStory({ client, guildId, headline, description, fields = [], color = 0xed1c24 }) {
+async function publishStory({ client, guildId, headline, description, fields = [], color = 0xed1c24, thumbnailUrl = null }) {
   const channel = await echoChannel(client, guildId);
   if (!channel) return null;
   const webhook = await ensureCultureLineWebhook(channel);
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`CULTURELINE // ${headline}`)
+    .setDescription(description)
+    .addFields(fields)
+    .setFooter({ text: 'CultureLine ✓ · Verified VORTEX publication · Pop culture. Real talk. All access.' })
+    .setTimestamp();
+  if (thumbnailUrl) embed.setThumbnail(thumbnailUrl);
   return webhook.send({
     username: 'CultureLine ✓',
     allowedMentions: { parse: [] },
-    embeds: [new EmbedBuilder()
-      .setColor(color)
-      .setTitle(`CULTURELINE // ${headline}`)
-      .setDescription(description)
-      .addFields(fields)
-      .setFooter({ text: 'CultureLine ✓ · Verified VORTEX publication · Pop culture. Real talk. All access.' })
-      .setTimestamp()],
+    embeds: [embed],
   });
 }
 
 function workDetails(guildId, workId) {
   return db.prepare(`
-    SELECT w.*, p.name AS platform_name, i.civilian_name, i.verified
+    SELECT w.*, p.name AS platform_name, i.civilian_name, i.verified, i.profile_photo_url
     FROM works w JOIN platforms p ON p.code = w.platform_code
     JOIN identities i ON i.id = w.identity_id
     WHERE w.id = ? AND w.status = 'released'
@@ -62,6 +65,7 @@ function workDetails(guildId, workId) {
 async function publishReleaseStory({ client, guildId, workId, createdBy }) {
   const work = workDetails(guildId, workId);
   if (!work || !claimStory(guildId, `release:${workId}`, 'release', workId, createdBy)) return null;
+  applyGovernmentImpact(db, work.identity_id, { recognition: 0.15, attention: 0.2 });
   return publishStory({
     client, guildId, headline: 'JUST RELEASED',
     description: `**${work.credited_name}${work.verified ? ' ✓' : ''}** just released **${work.title}** on ${work.platform_name}.`,
@@ -70,6 +74,7 @@ async function publishReleaseStory({ client, guildId, workId, createdBy }) {
       { name: 'Type', value: String(work.work_type).replaceAll('_', ' '), inline: true },
       { name: 'Where to find it', value: work.platform_name, inline: true },
     ],
+    thumbnailUrl: work.profile_photo_url,
   });
 }
 

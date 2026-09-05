@@ -5,6 +5,9 @@ const { isAdmin, ownsIdentity } = require('./access');
 const { verifiedName, verificationLabel } = require('./display');
 const { audienceLabel } = require('./audience');
 const { roleLabel } = require('./collaboration');
+const {
+  INDUSTRIES, INDUSTRY_LABELS, STATUS_LABELS, careerChoices, careerLabel,
+} = require('./personaCareer');
 
 const aliasTypes = [
   ['Stage name', 'stage'],
@@ -22,8 +25,23 @@ module.exports = {
       .setName('register')
       .setDescription('Register a persona and begin linking their Tupperbox proxy.')
       .addStringOption((opt) => opt.setName('civilian_name').setDescription('Their civilian name').setRequired(true).setMaxLength(80))
+      .addStringOption((opt) => {
+        opt.setName('industry').setDescription('Choose the persona’s primary industry').setRequired(true);
+        for (const [name, value] of INDUSTRIES) opt.addChoices({ name, value });
+        return opt;
+      })
+      .addStringOption((opt) => opt.setName('career').setDescription('Choose their career or role').setRequired(true).setAutocomplete(true))
       .addStringOption((opt) => opt.setName('pronouns').setDescription('Optional pronouns').setMaxLength(40))
-      .addStringOption((opt) => opt.setName('bio').setDescription('Optional short bio').setMaxLength(500)))
+      .addStringOption((opt) => opt.setName('bio').setDescription('Optional short bio').setMaxLength(500))
+      .addAttachmentOption((opt) => opt.setName('photo').setDescription('Optional official persona profile photo'))
+      .addStringOption((opt) => opt.setName('office').setDescription('Government office or position, if applicable').setMaxLength(100))
+      .addStringOption((opt) => opt.setName('jurisdiction').setDescription('Government constituency or jurisdiction').setMaxLength(100))
+      .addStringOption((opt) => opt.setName('affiliation').setDescription('Political party or affiliation').setMaxLength(100))
+      .addStringOption((opt) => opt.setName('government_status').setDescription('Current government or campaign status').addChoices(
+        { name: 'Officeholder', value: 'officeholder' }, { name: 'Candidate', value: 'candidate' },
+        { name: 'Appointed', value: 'appointed' }, { name: 'Government staff', value: 'staff' },
+        { name: 'Not campaigning', value: 'not_campaigning' },
+      )))
     .addSubcommand((sub) => sub
       .setName('alias-add')
       .setDescription('Add a stage, screen, former, or social name.')
@@ -44,8 +62,15 @@ module.exports = {
       .setDescription('Edit one of your registered personas.')
       .addStringOption((opt) => opt.setName('persona').setDescription('Select your persona').setRequired(true).setAutocomplete(true))
       .addStringOption((opt) => opt.setName('civilian_name').setDescription('Updated civilian name').setMaxLength(80))
+      .addStringOption((opt) => {
+        opt.setName('industry').setDescription('Updated primary industry');
+        for (const [name, value] of INDUSTRIES) opt.addChoices({ name, value });
+        return opt;
+      })
+      .addStringOption((opt) => opt.setName('career').setDescription('Updated career or role').setAutocomplete(true))
       .addStringOption((opt) => opt.setName('pronouns').setDescription('Updated pronouns').setMaxLength(40))
-      .addStringOption((opt) => opt.setName('bio').setDescription('Updated short bio').setMaxLength(500)))
+      .addStringOption((opt) => opt.setName('bio').setDescription('Updated short bio').setMaxLength(500))
+      .addAttachmentOption((opt) => opt.setName('photo').setDescription('Replace the official profile photo')))
     .addSubcommand((sub) => sub
       .setName('delete')
       .setDescription('Delete an unused persona you registered.')
@@ -58,6 +83,11 @@ module.exports = {
 
   async autocomplete(interaction) {
     const subcommand = interaction.options.getSubcommand();
+    const focused = interaction.options.getFocused(true);
+    if (focused.name === 'career') {
+      const industry = interaction.options.getString('industry') || 'other';
+      return interaction.respond(careerChoices(industry, focused.value));
+    }
     await interaction.respond(identityChoices(interaction, false, subcommand !== 'profile'));
   },
 
@@ -66,6 +96,12 @@ module.exports = {
 
     if (subcommand === 'register') {
       const civilianName = interaction.options.getString('civilian_name').trim();
+      const industry = interaction.options.getString('industry');
+      const career = interaction.options.getString('career');
+      const photo = interaction.options.getAttachment('photo');
+      if (photo?.contentType && !photo.contentType.startsWith('image/')) {
+        return interaction.reply({ content: 'The persona profile photo must be an image.', ephemeral: true });
+      }
       const duplicate = db.prepare(`
         SELECT id FROM identities
         WHERE owner_user_id = ? AND LOWER(civilian_name) = LOWER(?)
@@ -77,16 +113,36 @@ module.exports = {
       const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
       const register = db.transaction(() => {
         const result = db.prepare(`
-          INSERT INTO identities (guild_id, owner_user_id, civilian_name, pronouns, bio, status, reviewed_by, reviewed_at)
-          VALUES (?, ?, ?, ?, ?, 'approved', ?, CURRENT_TIMESTAMP)
+          INSERT INTO identities
+            (guild_id, owner_user_id, civilian_name, pronouns, bio, industry, career,
+             public_status, profile_photo_url, status, reviewed_by, reviewed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'civilian', ?, 'approved', ?, CURRENT_TIMESTAMP)
         `).run(
           interaction.guildId,
           interaction.user.id,
           civilianName,
           interaction.options.getString('pronouns'),
           interaction.options.getString('bio'),
+          industry,
+          career,
+          photo?.url || null,
           interaction.user.id,
         );
+        if (industry === 'government') {
+          db.prepare(`
+            INSERT INTO government_profiles
+              (identity_id, office, jurisdiction, affiliation, government_status, campaign_status, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            result.lastInsertRowid,
+            interaction.options.getString('office'),
+            interaction.options.getString('jurisdiction'),
+            interaction.options.getString('affiliation'),
+            interaction.options.getString('government_status'),
+            interaction.options.getString('government_status') === 'candidate' ? 'campaigning' : 'not_campaigning',
+            interaction.user.id,
+          );
+        }
         db.prepare(`
           UPDATE tupper_link_requests SET status = 'expired'
           WHERE guild_id = ? AND requested_by = ? AND status = 'awaiting_message'
@@ -100,7 +156,7 @@ module.exports = {
       });
       const result = register();
       return interaction.reply({
-        content: `**${civilianName}** is registered as persona #${result.personaId} and is ready to use. Now send one message through their Tupperbox proxy in this channel within two minutes; VERA will link it automatically.`,
+        content: `**${civilianName}** is registered as persona #${result.personaId} in **${INDUSTRY_LABELS[industry]}** as a **${careerLabel(career)}**. Their account begins as **Civilian**. Now send one message through their Tupperbox proxy in this channel within two minutes; VERA will link it automatically.`,
         ephemeral: true,
       });
     }
@@ -137,6 +193,9 @@ module.exports = {
         WHERE wc.identity_id = ? AND wc.active = 1 AND w.status = 'released'
         ORDER BY wc.created_at DESC LIMIT 8
       `).all(identityId);
+      const government = identity.industry === 'government'
+        ? db.prepare(`SELECT * FROM government_profiles WHERE identity_id = ?`).get(identityId)
+        : null;
       const embed = new EmbedBuilder()
         .setColor(0x6757ff)
         .setTitle(verifiedName(identity.civilian_name, identity.verified))
@@ -144,6 +203,9 @@ module.exports = {
         .addFields(
           { name: 'Persona ID', value: String(identity.id), inline: true },
           { name: 'Status', value: identity.status, inline: true },
+          { name: 'Account type', value: STATUS_LABELS[identity.public_status] || 'Civilian', inline: true },
+          { name: 'Industry', value: INDUSTRY_LABELS[identity.industry] || 'Other', inline: true },
+          { name: 'Career', value: careerLabel(identity.career), inline: true },
           { name: 'Pronouns', value: identity.pronouns || 'Not listed', inline: true },
           { name: 'Verification', value: verificationLabel(identity.verified), inline: true },
           {
@@ -165,6 +227,14 @@ module.exports = {
               : 'No collaborator credits yet',
           },
         );
+      if (identity.profile_photo_url) embed.setThumbnail(identity.profile_photo_url);
+      if (government) embed.addFields(
+        { name: 'Government role', value: government.office || careerLabel(identity.career), inline: true },
+        { name: 'Jurisdiction', value: government.jurisdiction || 'Not listed', inline: true },
+        { name: 'Affiliation', value: government.affiliation || 'Not listed', inline: true },
+        { name: 'Public opinion', value: `**${Number(government.approval).toFixed(1)}%** approve · **${Number(government.disapproval).toFixed(1)}%** disapprove · **${Number(government.undecided).toFixed(1)}%** undecided` },
+        { name: 'Government metrics', value: `Name recognition: **${Number(government.name_recognition).toFixed(1)}%**\nPublic trust: **${Number(government.public_trust).toFixed(1)}%**\nFavorability: **${Number(government.favorability).toFixed(1)}%**\nMedia attention: **${Number(government.media_attention).toFixed(1)}%**\nControversy: **${Number(government.controversy).toFixed(1)}%**\nEndorsements: **${Number(government.endorsements).toLocaleString()}**` },
+      );
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
@@ -172,10 +242,16 @@ module.exports = {
 
     if (subcommand === 'edit') {
       const civilianName = interaction.options.getString('civilian_name')?.trim();
+      const industry = interaction.options.getString('industry');
+      const career = interaction.options.getString('career');
       const pronouns = interaction.options.getString('pronouns')?.trim();
       const bio = interaction.options.getString('bio')?.trim();
-      if (civilianName === undefined && pronouns === undefined && bio === undefined) {
-        return interaction.reply({ content: 'Add at least one field to update: civilian name, pronouns, or bio.', ephemeral: true });
+      const photo = interaction.options.getAttachment('photo');
+      if (photo?.contentType && !photo.contentType.startsWith('image/')) {
+        return interaction.reply({ content: 'The persona profile photo must be an image.', ephemeral: true });
+      }
+      if (civilianName === undefined && industry === null && career === null && pronouns === undefined && bio === undefined && !photo) {
+        return interaction.reply({ content: 'Add at least one field to update: name, industry, career, pronouns, bio, or photo.', ephemeral: true });
       }
       if (civilianName && civilianName.toLowerCase() !== String(identity.civilian_name).toLowerCase()) {
         const duplicate = db.prepare(`
@@ -184,8 +260,22 @@ module.exports = {
         `).get(interaction.user.id, civilianName, identityId);
         if (duplicate) return interaction.reply({ content: 'You already have a persona with that civilian name.', ephemeral: true });
       }
-      db.prepare(`UPDATE identities SET civilian_name = ?, pronouns = ?, bio = ? WHERE id = ?`)
-        .run(civilianName ?? identity.civilian_name, pronouns ?? identity.pronouns, bio ?? identity.bio, identityId);
+      db.prepare(`
+        UPDATE identities SET civilian_name = ?, industry = ?, career = ?, pronouns = ?, bio = ?, profile_photo_url = ?
+        WHERE id = ?
+      `).run(
+        civilianName ?? identity.civilian_name,
+        industry ?? identity.industry,
+        career ?? identity.career,
+        pronouns ?? identity.pronouns,
+        bio ?? identity.bio,
+        photo?.url ?? identity.profile_photo_url,
+        identityId,
+      );
+      if ((industry ?? identity.industry) === 'government') {
+        db.prepare(`INSERT INTO government_profiles (identity_id, updated_by) VALUES (?, ?) ON CONFLICT(identity_id) DO NOTHING`)
+          .run(identityId, interaction.user.id);
+      }
       return interaction.reply({ content: `Updated **${civilianName || identity.civilian_name}**.`, ephemeral: true });
     }
 

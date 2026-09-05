@@ -16,6 +16,7 @@ const { applyPlatformBrand } = require('./display');
 const { publishAsPersona } = require('./proxyPublisher');
 const { maybePublishTraction } = require('./cultureline');
 const { updateCollaboratorCareer } = require('./collaboration');
+const { engagementImpact } = require('./government');
 
 const ACTIONS = {
   LUMI: [['watch', 'Watch', '▶️'], ['rate', 'Rate', '⭐'], ['review', 'Review', '📝']],
@@ -142,6 +143,7 @@ function recordEngagement(interaction, identityId, workId, action, responseText 
       points > 0 ? 0.03 : 0,
       action === 'rate' ? (Number(rating) - 3) * 0.03 : 0.01,
     );
+    engagementImpact(db, work.identity_id, action, 0, rating);
   });
   save();
   return { work, points };
@@ -291,6 +293,7 @@ module.exports = {
         return true;
       }
       db.prepare(`UPDATE content_engagements SET sentiment = ? WHERE id = ?`).run(sentiment, engagement.engagement_id);
+      engagementImpact(db, engagement.identity_id, engagement.engagement_type, sentiment);
       await maybePublishTraction({ client: interaction.client, guildId: interaction.guildId, workId: parsed.workId })
         .catch((error) => console.error('CultureLine traction check error:', error));
       await interaction.editReply({

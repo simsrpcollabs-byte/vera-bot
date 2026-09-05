@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const db = require('./database');
 const { identityChoices } = require('./autocomplete');
 const { publishStory } = require('./cultureline');
+const { applyGovernmentImpact } = require('./government');
 
 function ownedPersona(interaction, identityId) {
   return db.prepare(`
@@ -58,9 +59,11 @@ module.exports = {
         description: `**${persona.civilian_name}${persona.verified ? ' ✓' : ''}** made an appearance at **${event}**.${details ? `\n\n${details}` : ''}`,
         fields: location ? [{ name: 'Location', value: location, inline: true }] : [],
         color: 0xf04f8b,
+        thumbnailUrl: persona.profile_photo_url,
       });
       if (!message) return interaction.editReply('CultureLine could not publish because the official ECHO channel is not configured.');
       recordEvent(interaction, 'appearance');
+      applyGovernmentImpact(db, persona.id, { recognition: 0.2, attention: 0.25, favorability: 0.05 });
       return interaction.editReply(`CultureLine published the appearance in <#${message.channelId}>.`);
     }
 
@@ -77,9 +80,12 @@ module.exports = {
       description: `Things are getting tense between **${persona.civilian_name}${persona.verified ? ' ✓' : ''}** and **${opponent.civilian_name}${opponent.verified ? ' ✓' : ''}**.\n\n${details}`,
       fields: [{ name: 'Status', value: 'Developing', inline: true }],
       color: 0xed1c24,
+      thumbnailUrl: persona.profile_photo_url,
     });
     if (!message) return interaction.editReply('CultureLine could not publish because the official ECHO channel is not configured.');
     recordEvent(interaction, 'public_feud');
+    applyGovernmentImpact(db, persona.id, { attention: 0.45, controversy: 0.5, trust: -0.08 });
+    applyGovernmentImpact(db, opponent.id, { attention: 0.45, controversy: 0.5, trust: -0.08 });
     return interaction.editReply(`CultureLine published the feud in <#${message.channelId}>.`);
   },
 };

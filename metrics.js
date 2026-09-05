@@ -65,7 +65,9 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
     + (Number(identity.affinity) * 0.2)
   );
   const promoMultiplier = promoMultipliers[promo] || promoMultipliers.standard;
-  const impact = (0.68 + (careerScore / 55)) * promoMultiplier * between(random, 0.84, 1.28);
+  const { reachMultiplier } = require('./personaCareer');
+  const statusMultiplier = reachMultiplier(identity);
+  const impact = (0.68 + (careerScore / 55)) * promoMultiplier * statusMultiplier * between(random, 0.84, 1.28);
   const sentiment = clamp(Math.round(68 + (Number(identity.affinity) * 0.22) + between(random, -4, 12)), 55, 98);
 
   if (platform.category === 'music') {
@@ -132,7 +134,7 @@ function generateOpeningMetrics({ workId, title, workType, platform, identity, p
         field('Live viewers', compact(live)),
         field('Live + same day', compact(sameDay)),
         field('7-day viewers', compact(sevenDay)),
-        field('18–49 rating', rating),
+        field(platform.code === 'LUMI' ? '6mo–17 rating' : '18–49 rating', rating),
         field('Audience score', `${sentiment}%`),
       ],
       chart: { code: 'television', name: 'VORTEX Television', score: sevenDay + (Number(rating) * 1_000_000), predictedRank: rank },

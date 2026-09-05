@@ -11,7 +11,11 @@ CREATE TABLE IF NOT EXISTS identities (
   recognition DOUBLE PRECISION NOT NULL DEFAULT 5, heat DOUBLE PRECISION NOT NULL DEFAULT 5,
   affinity DOUBLE PRECISION NOT NULL DEFAULT 5, verified SMALLINT NOT NULL DEFAULT 0,
   verified_by TEXT, verified_at TIMESTAMPTZ, status TEXT NOT NULL DEFAULT 'approved',
-  reviewed_by TEXT, reviewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  reviewed_by TEXT, reviewed_at TIMESTAMPTZ,
+  industry TEXT NOT NULL DEFAULT 'general', career TEXT NOT NULL DEFAULT 'civilian',
+  public_status TEXT NOT NULL DEFAULT 'civilian', public_status_locked SMALLINT NOT NULL DEFAULT 0,
+  profile_photo_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 DROP INDEX IF EXISTS idx_identities_owner;
 CREATE INDEX IF NOT EXISTS idx_identities_owner ON identities(owner_user_id);
@@ -170,6 +174,25 @@ CREATE TABLE IF NOT EXISTS work_buzz (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS government_profiles (
+  identity_id BIGINT PRIMARY KEY REFERENCES identities(id) ON DELETE CASCADE,
+  office TEXT, jurisdiction TEXT, affiliation TEXT, government_status TEXT,
+  approval DOUBLE PRECISION NOT NULL DEFAULT 35,
+  disapproval DOUBLE PRECISION NOT NULL DEFAULT 15,
+  undecided DOUBLE PRECISION NOT NULL DEFAULT 50,
+  name_recognition DOUBLE PRECISION NOT NULL DEFAULT 5,
+  public_trust DOUBLE PRECISION NOT NULL DEFAULT 50,
+  favorability DOUBLE PRECISION NOT NULL DEFAULT 50,
+  media_attention DOUBLE PRECISION NOT NULL DEFAULT 5,
+  controversy DOUBLE PRECISION NOT NULL DEFAULT 0,
+  endorsements INTEGER NOT NULL DEFAULT 0,
+  campaign_status TEXT NOT NULL DEFAULT 'not_campaigning',
+  updated_by TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (approval >= 0 AND approval <= 100),
+  CHECK (disapproval >= 0 AND disapproval <= 100),
+  CHECK (undecided >= 0 AND undecided <= 100)
+);
+
 ALTER TABLE works ADD COLUMN IF NOT EXISTS parent_work_id BIGINT REFERENCES works(id) ON DELETE SET NULL;
 ALTER TABLE works ADD COLUMN IF NOT EXISTS media_url TEXT;
 ALTER TABLE works ADD COLUMN IF NOT EXISTS media_type TEXT;
@@ -179,6 +202,11 @@ ALTER TABLE platforms ADD COLUMN IF NOT EXISTS brand_color TEXT;
 ALTER TABLE platform_channels ADD COLUMN IF NOT EXISTS webhook_id TEXT;
 ALTER TABLE platform_channels ADD COLUMN IF NOT EXISTS webhook_token TEXT;
 ALTER TABLE content_engagements ADD COLUMN IF NOT EXISTS sentiment SMALLINT;
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS industry TEXT NOT NULL DEFAULT 'general';
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS career TEXT NOT NULL DEFAULT 'civilian';
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS public_status TEXT NOT NULL DEFAULT 'civilian';
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS public_status_locked SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE identities ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
 
 INSERT INTO platforms (code,name,category,description,brand_color) VALUES
 ('LUMI','Lumi','television','Television network','8B63FF'),

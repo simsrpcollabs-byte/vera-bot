@@ -27,6 +27,8 @@ function addAudience(db, guildId, identityId, platformCode, gain, score = 0) {
       activity_score = social_profiles.activity_score + EXCLUDED.activity_score,
       updated_at = CURRENT_TIMESTAMP
   `).run(persona.guild_id, identityId, platformCode, amount, Number(score || 0));
+  const { evaluatePublicStatus } = require('./personaCareer');
+  evaluatePublicStatus(db, identityId);
 }
 
 module.exports = { addAudience, audienceGain, audienceLabel };

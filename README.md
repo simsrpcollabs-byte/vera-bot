@@ -1,6 +1,6 @@
 # VERA Bot
 
-**Current version: 0.7.2**
+**Current version: 0.8.0**
 
 **VERA — VORTEX Entertainment Registration & Analytics**
 
@@ -8,9 +8,14 @@ VERA registers fictional entertainment personas, professional names, record labe
 
 The version shown here, in `package.json`, and in `/vera info` stays synchronized. Before packaging a small update, run `npm run version:patch`; use `npm run version:minor` for a feature release or `npm run version:major` for a major rebuild.
 
-## Included in Version 0.7.2
+## Included in Version 0.8.0
 
 - Self-service personas with separate civilian, stage, screen, former, professional, and social names
+- Industry and career dropdowns during registration, including Government / Politics
+- Civilian, Emerging, and Public Figure account statuses with realistic reach and follower growth
+- Automatic status progression with server-owner overrides
+- Optional persona profile photos with linked-Tupper avatars still used for proxy posts
+- Government profiles with approval, disapproval, undecided voters, trust, favorability, recognition, media attention, controversy, endorsements, office, jurisdiction, affiliation, and campaign status
 - Server-wide persona directory and profiles viewable by every member
 - VORTEX-wide personas that retain their owner, aliases, verification, proxy, audience, work, and metrics across every VERA server
 - Record-label registration and rosters
@@ -88,6 +93,8 @@ The version shown here, in `package.json`, and in `/vera info` stays synchronize
 - `/admin reject`
 - `/admin persona-audience` (server owner)
 - `/admin persona-verification` (server owner)
+- `/admin persona-status` (server owner)
+- `/admin government-metrics` (server owner)
 - `/rp rules`
 - `/rp parse`
 - `/rp buzz`
@@ -206,12 +213,21 @@ The Tupperbox proxy attaches to the civilian person. Work submissions still choo
 
 VERA cannot send through Tupperbox's private webhook. Instead, it uses a VERA-owned webhook with the public stage/screen name and mirrors the linked Tupper's current avatar. Whenever the linked proxy speaks in a channel VERA can read, VERA refreshes its saved avatar automatically.
 
+## Persona industries and public status
+
+Every new persona begins as a **Civilian**. Registration uses an industry dropdown and a career menu matched to that industry. Users may also upload an official profile photo; this is separate from the Tupper avatar used when VERA publishes through the persona proxy.
+
+Civilian accounts receive sharply smaller organic reach and follower conversion, so an ordinary persona does not collect thousands of followers from one post. VERA can automatically advance a persona to **Emerging** and then **Public Figure** as recognition and cross-platform audiences grow. The Discord server owner can use `/admin persona-status` to set a status manually or return the persona to automatic progression. Verification remains a separate approval system.
+
+Government / Politics personas receive a public-opinion section on `/persona profile`. The server owner can update office, jurisdiction, affiliation, campaign status, approval, disapproval, recognition, trust, favorability, media attention, controversy, and endorsements with `/admin government-metrics`. Undecided opinion is calculated automatically so approval, disapproval, and undecided always total 100%.
+
 ## Instant publishing and metrics
 
 `/work submit` publishes immediately. Users do not wait for an admin to approve the work. VERA routes the saved opening-metrics card to the platform’s assigned channel and publishes it under the selected credited stage or screen name:
 
 - PULSE: streams, sales, radio audience, chart points, debut position, and new listeners
-- Lumi or Canvas: live viewers, same-day viewers, 7-day viewers, demographic rating, and audience score
+- Lumi: live viewers, same-day viewers, 7-day viewers, ages 6 months–17 rating, and audience score
+- Canvas: live viewers, same-day viewers, 7-day viewers, 18–49 rating, and audience score
 - FRAME: first-day and projected 7-day views, likes, comments, average viewed, and new subscribers
 - Xposure: reach, impressions, Flashes, comments, and new Watchers
 - KNETIK: first-day views, likes, shares, completion rate, and new Followers
